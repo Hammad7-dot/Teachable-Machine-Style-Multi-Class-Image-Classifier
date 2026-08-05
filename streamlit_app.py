@@ -17,6 +17,42 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(page_title="Teachable Machine Classifier", page_icon="\U0001F9E0", layout="wide")
 
+st.markdown("""
+<style>
+:root {
+  --bg: #0d0f14; --panel: #171b23; --panel2: #1e2330; --panel3: #262c3b;
+  --border: #2a3040; --border-strong: #3a4258;
+  --text: #eef0f4; --text-secondary: #c3c9d6; --muted: #8b93a7;
+  --accent: #7c9eff; --accent2: #6fd7a3; --danger: #ff6b6b; --warn: #ffb84d;
+  --accent-soft: rgba(124,158,255,0.13); --accent2-soft: rgba(111,215,163,0.13);
+  --danger-soft: rgba(255,107,107,0.13); --warn-soft: rgba(255,184,77,0.13);
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+}
+[data-testid="stMetric"] {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 16px; transition: transform 150ms ease, border-color 150ms ease;
+}
+[data-testid="stMetric"]:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  border-radius: var(--r-lg) !important; transition: border-color 150ms ease;
+}
+div[data-testid="stVerticalBlockBorderWrapper"]:hover { border-color: var(--border-strong) !important; }
+[data-testid="stButton"] button {
+  border-radius: var(--r-sm) !important; font-weight: 600 !important;
+  transition: transform 100ms ease !important;
+}
+[data-testid="stButton"] button:active { transform: translateY(1px); }
+[data-testid="stAlert"] { border-radius: var(--r-md) !important; }
+[data-testid="stFileUploaderDropzone"] {
+  background: var(--panel2) !important; border: 2px dashed var(--border) !important;
+  border-radius: var(--r-md) !important; transition: border-color 150ms ease;
+}
+[data-testid="stFileUploaderDropzone"]:hover { border-color: var(--accent) !important; }
+[data-testid="stDataFrame"] { border-radius: var(--r-md); overflow: hidden; }
+h1, h2, h3 { letter-spacing: -0.01em; }
+</style>
+""", unsafe_allow_html=True)
+
 MODEL_LABELS = {
     "logistic_regression": "Logistic Regression",
     "random_forest": "Random Forest",
@@ -117,32 +153,34 @@ if page == "Dashboard":
     c3.metric("Training runs", dash["total_runs"])
     c4.metric("Completed runs", dash["completed_runs"])
 
-    st.subheader("Images per class")
-    if dash["class_counts"]:
-        df = pd.DataFrame(
-            {"class": list(dash["class_counts"].keys()), "images": list(dash["class_counts"].values())}
-        ).set_index("class")
-        st.bar_chart(df)
-    else:
-        st.caption("No classes yet.")
-
-    st.subheader("Latest training run")
-    if not dash["latest_run"]:
-        st.caption("No completed runs yet.")
-        if st.button("Go train a model"):
-            st.session_state["_nav_radio"] = "Train"
-            st.rerun()
-    else:
-        acc_rows = {
-            MODEL_LABELS[m["model_type"]]: (m["accuracy"] or 0) * 100
-            for m in dash["latest_run"]["models"] if m["status"] == "done"
-        }
-        if acc_rows:
-            df = pd.DataFrame({"model": list(acc_rows.keys()), "accuracy %": list(acc_rows.values())}).set_index("model")
+    st.subheader("\U0001F4CA Images per class")
+    with st.container(border=True):
+        if dash["class_counts"]:
+            df = pd.DataFrame(
+                {"class": list(dash["class_counts"].keys()), "images": list(dash["class_counts"].values())}
+            ).set_index("class")
             st.bar_chart(df)
-        for m in dash["latest_run"]["models"]:
-            if m["status"] != "done":
-                st.caption(f"{MODEL_LABELS[m['model_type']]}: {m['status']}")
+        else:
+            st.caption("No classes yet.")
+
+    st.subheader("\U0001F3C1 Latest training run")
+    with st.container(border=True):
+        if not dash["latest_run"]:
+            st.caption("No completed runs yet.")
+            if st.button("Go train a model"):
+                st.session_state["_nav_radio"] = "Train"
+                st.rerun()
+        else:
+            acc_rows = {
+                MODEL_LABELS[m["model_type"]]: (m["accuracy"] or 0) * 100
+                for m in dash["latest_run"]["models"] if m["status"] == "done"
+            }
+            if acc_rows:
+                df = pd.DataFrame({"model": list(acc_rows.keys()), "accuracy %": list(acc_rows.values())}).set_index("model")
+                st.bar_chart(df)
+            for m in dash["latest_run"]["models"]:
+                if m["status"] != "done":
+                    st.caption(f"{MODEL_LABELS[m['model_type']]}: {m['status']}")
 
 # ------------------------------------------------------------ Classes & Data --
 elif page == "Classes & Data":
@@ -194,7 +232,7 @@ elif page == "Classes & Data":
                             st.success(f"Added {len(result['accepted'])} image(s).")
                             st.cache_data.clear()
                             st.rerun()
-                    if st.button("Delete class", key=f"del_{c['name']}"):
+                    if st.button("\U0001F5D1️ Delete class", key=f"del_{c['name']}", help="Delete this class"):
                         api_delete(f"/api/classes/{c['name']}")
                         st.cache_data.clear()
                         st.rerun()
@@ -231,7 +269,7 @@ elif page == "Train":
         cols = st.columns(3)
         all_done = True
         for i, m in enumerate(run["models"]):
-            with cols[i]:
+            with cols[i], st.container(border=True):
                 label = MODEL_LABELS[m["model_type"]]
                 badge = {"pending": "⏳", "training": "🔄", "done": "✅", "failed": "❌"}[m["status"]]
                 st.markdown(f"**{label}** {badge} `{m['status']}`")
@@ -283,35 +321,54 @@ elif page == "Results":
 
 # -------------------------------------------------------------- Predict --
 elif page == "Predict":
-    mode = st.radio("Image source", ["Upload", "Webcam"], horizontal=True)
+    input_col, results_col = st.columns([1, 2])
 
-    image_bytes = None
-    if mode == "Upload":
-        f = st.file_uploader("Choose an image to classify", type=["jpg", "jpeg", "png", "webp"])
-        if f:
-            image_bytes = f.getvalue()
-            st.image(image_bytes, width=300)
-    else:
-        cam = st.camera_input("Capture a frame")
-        if cam:
-            image_bytes = cam.getvalue()
+    with input_col:
+        mode = st.radio("Image source", ["Upload", "Webcam"], horizontal=True, label_visibility="collapsed")
 
-    if image_bytes:
-        with st.spinner("Predicting..."):
-            resp = api_post("/api/predict", files={"file": ("frame.jpg", image_bytes, "image/jpeg")})
-        result = resp.json()
-        if result.get("error"):
-            st.error(result["error"])
+        image_bytes = None
+        if mode == "Upload":
+            f = st.file_uploader("Choose an image to classify", type=["jpg", "jpeg", "png", "webp"])
+            if f:
+                image_bytes = f.getvalue()
+                with st.container(border=True):
+                    st.image(image_bytes, use_container_width=True)
         else:
-            cols = st.columns(3)
-            for i, (mt, p) in enumerate(result["predictions"].items()):
-                with cols[i]:
-                    with st.container(border=True):
-                        st.markdown(f"**{MODEL_LABELS[mt]}**")
-                        if p["status"] == "ok":
-                            st.markdown(f"### {p['predicted_class']}")
-                            for cls, prob in sorted(p["probabilities"].items(), key=lambda x: -x[1]):
-                                st.write(f"{cls}: {prob*100:.1f}%")
-                                st.progress(prob)
-                        else:
-                            st.caption(f"Unavailable: {p.get('reason')}")
+            cam = st.camera_input("Capture a frame")
+            if cam:
+                image_bytes = cam.getvalue()
+
+    with results_col:
+        if image_bytes:
+            with st.spinner("Predicting..."):
+                resp = api_post("/api/predict", files={"file": ("frame.jpg", image_bytes, "image/jpeg")})
+            result = resp.json()
+            if result.get("error"):
+                st.error(result["error"])
+            else:
+                predictions = list(result["predictions"].items())
+                ok = [(mt, p) for mt, p in predictions if p["status"] == "ok"]
+                winner_mt = None
+                if ok:
+                    winner_mt = max(ok, key=lambda kv: max(kv[1]["probabilities"].values()))[0]
+                    st.success(f"\U0001F3C6 Highest confidence: **{MODEL_LABELS[winner_mt]}**")
+                    predictions.sort(key=lambda kv: 0 if kv[0] == winner_mt else 1)
+
+                cols = st.columns(3)
+                for i, (mt, p) in enumerate(predictions):
+                    with cols[i]:
+                        with st.container(border=True):
+                            title = f"**{MODEL_LABELS[mt]}**"
+                            if mt == winner_mt:
+                                title += " \U0001F3C6"
+                            st.markdown(title)
+                            if p["status"] == "ok":
+                                st.markdown(f"### {p['predicted_class']}")
+                                for j, (cls, prob) in enumerate(sorted(p["probabilities"].items(), key=lambda x: -x[1])):
+                                    label = f"**{cls}: {prob*100:.1f}%**" if j == 0 else f"{cls}: {prob*100:.1f}%"
+                                    st.write(label)
+                                    st.progress(prob)
+                            else:
+                                st.caption(f"Unavailable: {p.get('reason')}")
+        else:
+            st.caption("Choose an image or capture a webcam frame to see predictions here.")

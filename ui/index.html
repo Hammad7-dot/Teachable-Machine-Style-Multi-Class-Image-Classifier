@@ -6,72 +6,129 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
 <style>
   :root {
-    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --border: #2a2f3a;
-    --text: #e8eaed; --muted: #9aa3b2; --accent: #7c9eff; --accent2: #6fd7a3;
-    --danger: #ff6b6b; --warn: #ffb84d; --sidebar-w: 220px;
+    --bg: #0d0f14; --bg-elevated: #12151c;
+    --panel: #171b23; --panel2: #1e2330; --panel3: #262c3b;
+    --border: #2a3040; --border-strong: #3a4258;
+    --text: #eef0f4; --text-secondary: #c3c9d6; --muted: #8b93a7;
+    --accent: #7c9eff; --accent-hover: #96b1ff; --accent-soft: rgba(124,158,255,0.13);
+    --accent2: #6fd7a3; --accent2-soft: rgba(111,215,163,0.13);
+    --danger: #ff6b6b; --danger-soft: rgba(255,107,107,0.13);
+    --warn: #ffb84d; --warn-soft: rgba(255,184,77,0.13);
+    --sidebar-w: 224px;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-7:32px;
+    --fs-xs:11px; --fs-sm:12.5px; --fs-base:13.5px; --fs-md:15px; --fs-lg:18px; --fs-xl:22px; --fs-2xl:28px;
+    --r-sm:6px; --r-md:10px; --r-lg:14px; --r-full:999px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
+    --shadow-md: 0 6px 20px rgba(0,0,0,0.4);
+    --ease: cubic-bezier(0.4,0,0.2,1);
+    --dur-fast: 120ms; --dur-base: 200ms;
   }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, Inter, Segoe UI, Roboto, sans-serif; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, Inter, Segoe UI, Roboto, sans-serif; -webkit-font-smoothing:antialiased; }
   .shell { display:flex; min-height:100vh; }
-  .sidebar { width:var(--sidebar-w); flex-shrink:0; background:var(--panel); border-right:1px solid var(--border); padding:20px 12px; position:sticky; top:0; height:100vh; }
-  .brand { font-size:15px; font-weight:700; padding:0 10px 18px; }
+  .sidebar { width:var(--sidebar-w); flex-shrink:0; background:var(--panel); border-right:1px solid var(--border); padding:var(--sp-5) var(--sp-3); position:sticky; top:0; height:100vh; }
+  .brand { font-size:15px; font-weight:700; padding:0 var(--sp-2) var(--sp-5); margin-bottom:var(--sp-3); border-bottom:1px solid var(--border); }
   .brand span { color:var(--accent2); }
-  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; cursor:pointer; color:var(--muted); font-size:13.5px; font-weight:500; margin-bottom:2px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--r-sm); cursor:pointer; color:var(--muted); font-size:13.5px; font-weight:500; margin-bottom:2px; border-left:2px solid transparent; transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
   .nav-item:hover { background:var(--panel2); color:var(--text); }
-  .nav-item.active { background:#1a2540; color:var(--accent); }
+  .nav-item.active { background:var(--accent-soft); color:var(--accent); border-left-color:var(--accent); }
   .nav-icon { font-size:15px; width:18px; text-align:center; }
   .main { flex:1; padding: 24px 28px 80px; max-width:1180px; }
-  h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
-  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
-  .card { background: var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
+  h1 { font-size: var(--fs-xl); font-weight: 700; margin: 0 0 4px; letter-spacing:-0.01em; }
+  .subtitle { color: var(--muted); font-size: var(--fs-base); margin-bottom: var(--sp-6); }
+  .card { background: var(--panel); border:1px solid var(--border); border-radius:var(--r-lg); padding:var(--sp-5); margin-bottom:var(--sp-4); box-shadow:var(--shadow-sm); transition: border-color var(--dur-base) var(--ease); }
   .row { display:flex; gap:12px; flex-wrap:wrap; }
-  input[type=text] { background:var(--panel2); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:8px; font-size:14px; }
-  button { background: var(--accent); color:#0b0d12; border:none; padding:8px 14px; border-radius:8px; font-weight:600; cursor:pointer; font-size:13px; }
+  input[type=text] { background:var(--panel2); border:1px solid var(--border); color:var(--text); padding:9px 12px; border-radius:var(--r-sm); font-size:14px; transition: border-color var(--dur-fast) var(--ease); }
+  input[type=text]:focus { outline:none; border-color:var(--accent); }
+  button { background: var(--accent); color:#0b0d12; border:none; padding:9px 16px; border-radius:var(--r-sm); font-weight:600; cursor:pointer; font-size:13px; transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   button.secondary { background: var(--panel2); color:var(--text); border:1px solid var(--border); }
+  button.secondary:hover:not(:disabled) { background: var(--panel3); border-color:var(--border-strong); }
+  button.danger-hover:hover:not(:disabled) { background: var(--danger-soft); border-color:var(--danger); color:var(--danger); }
   button:disabled { opacity:0.5; cursor:not-allowed; }
-  .class-card { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px; min-width:220px; flex:1; }
+  .class-card { background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-md); padding:var(--sp-3); min-width:220px; flex:1; transition: border-color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
+  .class-card:hover { border-color:var(--border-strong); }
   .class-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-  .count-badge { font-size:12px; padding:2px 8px; border-radius:999px; background:#2a2f3a; color:var(--muted); }
-  .count-badge.ok { background:#1d3327; color:var(--accent2); }
-  .drop { border:2px dashed var(--border); border-radius:10px; padding:16px; text-align:center; color:var(--muted); font-size:13px; margin-top:8px; cursor:pointer; }
+  .count-badge { font-size:12px; padding:2px 8px; border-radius:var(--r-full); background:var(--panel3); color:var(--muted); }
+  .count-badge.ok { background:var(--accent2-soft); color:var(--accent2); }
+  .drop { border:2px dashed var(--border); border-radius:var(--r-md); padding:16px; text-align:center; color:var(--muted); font-size:13px; margin-top:8px; cursor:pointer; transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
   .drop:hover { border-color: var(--accent); }
-  .status-banner { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px; }
-  .status-banner.ready { background:#12271c; color:var(--accent2); border:1px solid #234a35; }
-  .status-banner.notready { background:#2b2011; color:var(--warn); border:1px solid #4a3a1a; }
+  .drop.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  .status-banner { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:var(--r-md); font-size:13px; margin-bottom:12px; }
+  .status-banner.ready { background:var(--accent2-soft); color:var(--accent2); border:1px solid rgba(111,215,163,0.3); }
+  .status-banner.notready { background:var(--warn-soft); color:var(--warn); border:1px solid rgba(255,184,77,0.3); }
   .progress-wrap { background:var(--panel2); border-radius:6px; height:8px; overflow:hidden; margin:6px 0; }
-  .progress-bar { background:var(--accent); height:100%; transition: width 0.3s ease; }
-  .model-block { border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px; background:var(--panel2); }
+  .progress-bar { background:var(--accent); height:100%; transition: width 0.4s var(--ease); }
+  .progress-bar.active { background-image: linear-gradient(110deg, var(--accent) 0%, var(--accent-hover) 40%, var(--accent) 80%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { from { background-position: 0% 0; } to { background-position: -200% 0; } }
+  .model-block { border:1px solid var(--border); border-left:3px solid var(--border); border-radius:var(--r-md); padding:var(--sp-3); margin-bottom:10px; background:var(--panel2); transition: border-color var(--dur-base) var(--ease); }
+  .model-block.status-training { border-left-color: var(--accent); }
+  .model-block.status-done { border-left-color: var(--accent2); }
+  .model-block.status-failed, .model-block.status-unavailable { border-left-color: var(--danger); }
+  .model-block.winner { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
   .model-header { display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; margin-bottom:6px;}
-  .badge { font-size:11px; padding:2px 8px; border-radius:999px; }
-  .badge.pending { background:#2a2f3a; color:var(--muted); }
-  .badge.training { background:#1a2a4a; color:var(--accent); }
-  .badge.done { background:#1d3327; color:var(--accent2); }
-  .badge.failed, .badge.unavailable { background:#3a1414; color:var(--danger); }
-  .log-line { font-size:12px; color:var(--muted); font-family: ui-monospace, monospace; }
+  .badge { font-size:10.5px; padding:2px 9px; border-radius:var(--r-full); font-weight:600; text-transform:uppercase; letter-spacing:0.03em; }
+  .badge.pending { background:var(--panel3); color:var(--muted); }
+  .badge.training { background:var(--accent-soft); color:var(--accent); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+  .badge.done { background:var(--accent2-soft); color:var(--accent2); }
+  .badge.failed, .badge.unavailable { background:var(--danger-soft); color:var(--danger); }
+  .chip { font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:var(--r-full); background:var(--accent2-soft); color:var(--accent2); text-transform:uppercase; letter-spacing:0.03em; }
+  .log-panel { max-height:160px; overflow-y:auto; margin-top:6px; mask-image: linear-gradient(to bottom, transparent, black 12px); }
+  .log-line { font-size:12px; color:var(--muted); font-family: ui-monospace, monospace; padding:1px 0; }
   .grid3 { display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
   .grid4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
-  @media (max-width: 900px) { .grid3, .grid4 { grid-template-columns: 1fr; } .shell { flex-direction:column; } .sidebar { width:100%; height:auto; position:static; } }
-  table.cm { border-collapse:collapse; font-size:11px; margin-top:8px; }
-  table.cm td, table.cm th { border:1px solid var(--border); padding:4px 6px; text-align:center; min-width:26px; }
-  table.cm th { color:var(--muted); font-weight:500; }
+  @media (max-width: 900px) { .grid3, .grid4 { grid-template-columns: 1fr; } .shell { flex-direction:column; } .sidebar { width:100%; height:auto; position:static; } .predict-panel { flex-direction:column; } video, img.preview { max-width:100%; } }
+  select.select { background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:var(--r-sm); padding:8px 12px; font-size:13px; transition: border-color var(--dur-fast) var(--ease); }
+  select.select:hover, select.select:focus { border-color:var(--accent); outline:none; }
+  table.cm { border-collapse:collapse; font-size:11px; margin-top:8px; font-variant-numeric: tabular-nums; }
+  table.cm td, table.cm th { border:1px solid var(--border); padding:5px 7px; text-align:center; min-width:26px; font-family: ui-monospace, monospace; }
+  table.cm th { color:var(--muted); font-weight:500; background:var(--panel2); font-family: inherit; }
+  table.cm tbody tr:hover td { outline:1px solid var(--border-strong); outline-offset:-1px; }
   .predict-panel { display:flex; gap:20px; flex-wrap:wrap; }
   .predict-input { flex:1; min-width:280px; }
-  video, img.preview { width:100%; max-width:340px; border-radius:10px; border:1px solid var(--border); background:#000; }
-  .prob-bar-wrap { background:var(--panel2); border-radius:5px; height:6px; overflow:hidden; margin-top:2px;}
-  .prob-bar { background:var(--accent2); height:100%; }
+  .segmented-control { display:inline-flex; background:var(--panel2); border-radius:var(--r-full); padding:3px; gap:2px; }
+  .segmented-control .segment { background:transparent; color:var(--muted); border:none; padding:8px 18px; border-radius:var(--r-full); font-weight:600; font-size:13px; cursor:pointer; transition: background var(--dur-base) var(--ease), color var(--dur-base) var(--ease); }
+  .segmented-control .segment.active { background:var(--panel3); color:var(--text); box-shadow:var(--shadow-sm); }
+  .drop-large { border:2px dashed var(--border); border-radius:var(--r-lg); min-height:220px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; transition: border-color var(--dur-base) var(--ease), background var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); text-align:center; padding:20px; }
+  .drop-large:hover { border-color:var(--accent); }
+  .drop-large.dragover { border-color:var(--accent); background:var(--accent-soft); transform:scale(1.01); }
+  .drop-icon { font-size:30px; opacity:0.7; }
+  .drop-title { font-size:14px; font-weight:600; color:var(--text-secondary); }
+  .drop-hint { font-size:12px; color:var(--muted); }
+  .preview-wrap { position:relative; margin-top:12px; display:inline-block; max-width:100%; }
+  .predict-overlay { position:absolute; inset:0; background:rgba(13,15,20,0.6); border-radius:var(--r-lg); display:flex; align-items:center; justify-content:center; color:var(--text); font-size:13px; font-weight:600; backdrop-filter: blur(1px); }
+  .spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,0.25); border-top-color:var(--text); border-radius:50%; animation: spin 0.7s linear infinite; margin-right:8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  video, img.preview { width:100%; max-width:420px; max-height:340px; object-fit:cover; border-radius:var(--r-lg); border:1px solid var(--border); background:#000; box-shadow:var(--shadow-md); }
+  .prob-bar-wrap { background:var(--panel3); border-radius:5px; height:7px; overflow:hidden; margin-top:2px;}
+  .prob-bar { height:100%; transition: width 0.4s var(--ease); }
+  .prob-bar.top { background:var(--accent2); }
+  .prob-bar.rest { background:var(--border-strong); }
   .prob-row { font-size:12px; margin-bottom:6px; }
   .top-pred { font-size:18px; font-weight:700; color:var(--accent2); }
   .muted { color: var(--muted); font-size:12px; }
-  .stat-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; }
-  .stat-value { font-size:26px; font-weight:700; }
+  .stat-card { background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:var(--r-lg); padding:var(--sp-4); box-shadow:var(--shadow-sm); transition: transform var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease); }
+  .stat-card:hover { transform: translateY(-2px); border-color:var(--border-strong); }
+  .stat-card:nth-child(2) { border-left-color: var(--accent2); }
+  .stat-card:nth-child(3) { border-left-color: var(--warn); }
+  .stat-card:nth-child(4) { border-left-color: var(--accent); }
+  .stat-value { font-size:var(--fs-2xl); font-weight:700; }
   .stat-label { font-size:12px; color:var(--muted); margin-top:2px; }
   .bar-chart-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-  .bar-chart-label { width:150px; font-size:12px; color:var(--muted); flex-shrink:0; }
+  .bar-chart-label { width:150px; font-size:12px; color:var(--text-secondary); flex-shrink:0; }
   .bar-chart-track { flex:1; background:var(--panel2); border-radius:6px; height:18px; overflow:hidden; }
-  .bar-chart-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:flex-end; padding-right:6px; font-size:11px; font-weight:600; color:#0b0d12; }
+  .bar-chart-fill { height:100%; width:0; background:linear-gradient(90deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:flex-end; padding-right:6px; font-size:11px; font-weight:600; color:#0b0d12; transition: width 0.6s var(--ease); }
+  .empty-state { text-align:center; padding: var(--sp-7) var(--sp-4); color:var(--muted); }
+  .empty-state .empty-icon { font-size:26px; margin-bottom:8px; opacity:0.6; }
+  .empty-state p { margin: 0 0 var(--sp-3); font-size:13px; }
+  .skeleton { background: linear-gradient(90deg, var(--panel2) 25%, var(--panel3) 37%, var(--panel2) 63%); background-size: 400% 100%; animation: skeleton-pulse 1.4s ease infinite; border-radius:var(--r-lg); }
+  @keyframes skeleton-pulse { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 </style>
 </head>
 <body>
@@ -130,7 +187,11 @@ function Dashboard({ setTab }) {
   };
   useEffect(() => { load(); }, []);
 
-  if (!dash) return <p className="muted">Loading...</p>;
+  if (!dash) return (
+    <div className="grid4">
+      {[0,1,2,3].map(i => <div key={i} className="skeleton" style={{height:82}} />)}
+    </div>
+  );
 
   const maxAcc = dash.latest_run
     ? Math.max(0.01, ...dash.latest_run.models.filter(m => m.accuracy != null).map(m => m.accuracy))
@@ -159,7 +220,13 @@ function Dashboard({ setTab }) {
 
       <div className="card" style={{marginTop:16}}>
         <h3 style={{marginTop:0, fontSize:14}}>Images per class</h3>
-        {Object.keys(dash.class_counts).length === 0 && <p className="muted">No classes yet.</p>}
+        {Object.keys(dash.class_counts).length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">▣</div>
+            <p>No classes yet.</p>
+            <button className="secondary" onClick={() => setTab("data")}>Go add classes</button>
+          </div>
+        )}
         {Object.entries(dash.class_counts).map(([name, n]) => (
           <div className="bar-chart-row" key={name}>
             <div className="bar-chart-label">{name}</div>
@@ -173,8 +240,9 @@ function Dashboard({ setTab }) {
       <div className="card">
         <h3 style={{marginTop:0, fontSize:14}}>Latest training run</h3>
         {!dash.latest_run && (
-          <div>
-            <p className="muted">No completed runs yet.</p>
+          <div className="empty-state">
+            <div className="empty-icon">▶</div>
+            <p>No completed runs yet.</p>
             <button onClick={() => setTab("train")}>Go train a model</button>
           </div>
         )}
@@ -197,9 +265,32 @@ function Dashboard({ setTab }) {
   );
 }
 
+function ClassDropzone({ name, onFiles }) {
+  const [dragOver, setDragOver] = useState(false);
+  const fileInput = useRef(null);
+  return (
+    <>
+      <div
+        className={`drop ${dragOver ? "dragover" : ""}`}
+        onClick={() => fileInput.current.click()}
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={e => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files);
+        }}
+      >
+        Drag & drop or click to upload (JPEG/PNG/WebP)
+      </div>
+      <input ref={fileInput} type="file" multiple accept="image/jpeg,image/png,image/webp"
+        style={{display:"none"}} onChange={e => e.target.files.length && onFiles(e.target.files)} />
+    </>
+  );
+}
+
 function ClassManager({ classes, status, refresh }) {
   const [newName, setNewName] = useState("");
-  const fileInputs = useRef({});
 
   const addClass = async () => {
     if (!newName.trim()) return;
@@ -228,6 +319,7 @@ function ClassManager({ classes, status, refresh }) {
     <div>
       {status && (
         <div className={`status-banner ${status.ready_to_train ? "ready" : "notready"}`}>
+          <span>{status.ready_to_train ? "✓" : "⚠"}</span>
           {status.ready_to_train
             ? `Dataset ready — ${classes.length} classes, ${Object.values(status.class_counts).reduce((a,b)=>a+b,0)} images total.`
             : `Not ready: ${status.reason}`}
@@ -250,17 +342,18 @@ function ClassManager({ classes, status, refresh }) {
                 {c.image_count}/{status?.min_images_per_class ?? 10}
               </span>
             </div>
-            <div className="drop" onClick={() => fileInputs.current[c.name].click()}>
-              Click to upload images (JPEG/PNG/WebP)
-            </div>
-            <input ref={el => fileInputs.current[c.name] = el} type="file" multiple accept="image/jpeg,image/png,image/webp"
-              style={{display:"none"}} onChange={e => e.target.files.length && uploadFiles(c.name, e.target.files)} />
+            <ClassDropzone name={c.name} onFiles={files => uploadFiles(c.name, files)} />
             <div className="row" style={{marginTop:8}}>
-              <button className="secondary" style={{fontSize:11}} onClick={() => deleteClass(c.name)}>Delete class</button>
+              <button className="secondary danger-hover" style={{fontSize:11}} onClick={() => deleteClass(c.name)}>Delete class</button>
             </div>
           </div>
         ))}
-        {classes.length === 0 && <p className="muted">No classes yet — add at least 2 to start training.</p>}
+        {classes.length === 0 && (
+          <div className="empty-state" style={{width:"100%"}}>
+            <div className="empty-icon">▣</div>
+            <p>No classes yet — add at least 2 to start training.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -298,6 +391,8 @@ function TrainPanel({ status, refresh }) {
   });
   const [log, setLog] = useState([]);
   const [training, setTraining] = useState(false);
+  const logRef = useRef(null);
+  useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log]);
 
   const startTraining = async () => {
     setLog([]);
@@ -345,12 +440,12 @@ function TrainPanel({ status, refresh }) {
 
       <div className="grid3">
         {Object.entries(models).map(([mt, m]) => (
-          <div className="model-block" key={mt}>
+          <div className={`model-block status-${m.status}`} key={mt}>
             <div className="model-header">
               <span>{MODEL_LABELS[mt]}</span>
               <span className={`badge ${m.status}`}>{m.status}</span>
             </div>
-            <div className="progress-wrap"><div className="progress-bar" style={{width: `${Math.round((m.progress||0)*100)}%`}}/></div>
+            <div className="progress-wrap"><div className={`progress-bar ${m.status === "training" ? "active" : ""}`} style={{width: `${Math.round((m.progress||0)*100)}%`}}/></div>
             {m.accuracy !== undefined && m.accuracy !== null && <p className="muted">Held-out accuracy: {(m.accuracy*100).toFixed(1)}%</p>}
             {m.error && <p style={{color:"var(--danger)", fontSize:12}}>Error: {m.error}</p>}
           </div>
@@ -360,7 +455,7 @@ function TrainPanel({ status, refresh }) {
       {log.length > 0 && (
         <div className="card">
           <strong style={{fontSize:13}}>Live log</strong>
-          <div style={{maxHeight:160, overflowY:"auto", marginTop:6}}>
+          <div ref={logRef} className="log-panel">
             {log.map((l, i) => <div key={i} className="log-line">{l}</div>)}
           </div>
         </div>
@@ -390,8 +485,7 @@ function RunResults() {
       <div className="card">
         <div className="row" style={{alignItems:"center"}}>
           <strong>Run:</strong>
-          <select value={selected||""} onChange={e => setSelected(e.target.value)}
-            style={{background:"var(--panel2)", color:"var(--text)", border:"1px solid var(--border)", borderRadius:8, padding:"6px 10px"}}>
+          <select className="select" value={selected||""} onChange={e => setSelected(e.target.value)}>
             {runs.map(r => <option key={r.id} value={r.id}>{r.id} — {new Date(r.started_at*1000).toLocaleString()} ({r.status})</option>)}
           </select>
           <button className="secondary" onClick={load}>Refresh</button>
@@ -401,7 +495,7 @@ function RunResults() {
       {detail && (
         <div className="grid3">
           {detail.models.map(m => (
-            <div className="model-block" key={m.model_type}>
+            <div className={`model-block status-${m.status}`} key={m.model_type}>
               <div className="model-header">
                 <span>{MODEL_LABELS[m.model_type]}</span>
                 <span className={`badge ${m.status}`}>{m.status}</span>
@@ -418,7 +512,12 @@ function RunResults() {
           ))}
         </div>
       )}
-      {!runs.length && <p className="muted">No training runs yet.</p>}
+      {!runs.length && (
+        <div className="empty-state">
+          <div className="empty-icon">▤</div>
+          <p>No training runs yet.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -426,35 +525,54 @@ function RunResults() {
 function PredictionResults({ result }) {
   if (!result) return null;
   if (result.error) return <p style={{color:"var(--danger)"}}>{result.error}</p>;
+
+  const entries = Object.entries(result.predictions);
+  const winner = entries
+    .filter(([, p]) => p.status === "ok")
+    .reduce((best, cur) => {
+      const curTop = Math.max(0, ...Object.values(cur[1].probabilities));
+      const bestTop = best ? Math.max(0, ...Object.values(best[1].probabilities)) : -1;
+      return curTop > bestTop ? cur : best;
+    }, null);
+  const winnerKey = winner ? winner[0] : null;
+  const ordered = [...entries].sort((a, b) => (a[0] === winnerKey ? -1 : b[0] === winnerKey ? 1 : 0));
+
   return (
     <div className="grid3">
-      {Object.entries(result.predictions).map(([mt, p]) => (
-        <div className="model-block" key={mt}>
-          <div className="model-header">
-            <span>{MODEL_LABELS[mt]}</span>
-            <span className={`badge ${p.status === "ok" ? "done" : "unavailable"}`}>{p.status}</span>
+      {ordered.map(([mt, p]) => {
+        const isWinner = mt === winnerKey;
+        return (
+          <div className={`model-block ${isWinner ? "winner" : ""}`} key={mt}>
+            <div className="model-header">
+              <span>{MODEL_LABELS[mt]}</span>
+              <div className="row" style={{gap:6}}>
+                {isWinner && <span className="chip">Highest confidence</span>}
+                <span className={`badge ${p.status === "ok" ? "done" : "unavailable"}`}>{p.status}</span>
+              </div>
+            </div>
+            {p.status === "ok" ? (
+              <>
+                <div className="top-pred">{p.predicted_class}</div>
+                {Object.entries(p.probabilities).sort((a,b)=>b[1]-a[1]).map(([cls, prob], i) => (
+                  <div className="prob-row" key={cls}>
+                    <div style={{display:"flex", justifyContent:"space-between"}}><span>{cls}</span><span>{(prob*100).toFixed(1)}%</span></div>
+                    <div className="prob-bar-wrap"><div className={`prob-bar ${i === 0 ? "top" : "rest"}`} style={{width:`${prob*100}%`}}/></div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="muted">{p.reason || "Model unavailable"}</p>
+            )}
           </div>
-          {p.status === "ok" ? (
-            <>
-              <div className="top-pred">{p.predicted_class}</div>
-              {Object.entries(p.probabilities).sort((a,b)=>b[1]-a[1]).map(([cls, prob]) => (
-                <div className="prob-row" key={cls}>
-                  <div style={{display:"flex", justifyContent:"space-between"}}><span>{cls}</span><span>{(prob*100).toFixed(1)}%</span></div>
-                  <div className="prob-bar-wrap"><div className="prob-bar" style={{width:`${prob*100}%`}}/></div>
-                </div>
-              ))}
-            </>
-          ) : (
-            <p className="muted">{p.reason || "Model unavailable"}</p>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function PredictPanel() {
   const [mode, setMode] = useState("upload");
+  const [dragOver, setDragOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -506,9 +624,9 @@ function PredictPanel() {
   return (
     <div>
       <div className="card">
-        <div className="row">
-          <button className={mode==="upload" ? "" : "secondary"} onClick={() => { setMode("upload"); stopWebcam(); }}>Upload image</button>
-          <button className={mode==="webcam" ? "" : "secondary"} onClick={startWebcam}>Use webcam</button>
+        <div className="segmented-control">
+          <button className={`segment ${mode==="upload" ? "active" : ""}`} onClick={() => { setMode("upload"); stopWebcam(); }}>Upload image</button>
+          <button className={`segment ${mode==="webcam" ? "active" : ""}`} onClick={startWebcam}>Use webcam</button>
         </div>
       </div>
 
@@ -516,7 +634,21 @@ function PredictPanel() {
         <div className="predict-input">
           {mode === "upload" && (
             <>
-              <div className="drop" onClick={() => document.getElementById("predict-file").click()}>Click to choose an image to classify</div>
+              <div
+                className={`drop-large ${dragOver ? "dragover" : ""}`}
+                onClick={() => document.getElementById("predict-file").click()}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  if (e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]);
+                }}
+              >
+                <div className="drop-icon">⇧</div>
+                <div className="drop-title">Drag &amp; drop an image, or click to browse</div>
+                <div className="drop-hint">JPEG, PNG, WebP</div>
+              </div>
               <input id="predict-file" type="file" accept="image/*" style={{display:"none"}}
                 onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
             </>
@@ -529,8 +661,12 @@ function PredictPanel() {
               </div>
             </>
           )}
-          {previewUrl && <img className="preview" src={previewUrl} style={{marginTop:10}} />}
-          {loading && <p className="muted">Predicting…</p>}
+          {previewUrl && (
+            <div className="preview-wrap">
+              <img className="preview" src={previewUrl} />
+              {loading && <div className="predict-overlay"><span className="spinner" />Predicting…</div>}
+            </div>
+          )}
         </div>
         <div style={{flex:2, minWidth:320}}>
           <PredictionResults result={result} />

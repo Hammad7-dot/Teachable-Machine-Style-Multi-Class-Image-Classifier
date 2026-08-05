@@ -4,13 +4,31 @@ Per D11: both sources use the same code path. Per D12/R7: one call returns
 predictions from all three models. Per R8: unavailable models say why.
 """
 import json
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
 
 from data import db
-from models.registry import cache
+from models.registry import cache, run_dir as models_run_dir
 from trainers.features import extract_features
 from trainers.cnn import IMG_SIZE as CNN_IMG_SIZE
+
+
+def _resolve_artifact_path(run_id, stored_path):
+    """artifact_path in the DB is just a filename (e.g. 'cnn.keras'), resolved
+    against this machine's storage/models/<run_id>/ at read time -- not baked
+    in as an absolute path at training time (see decisions.md D17). Older rows
+    may still hold a full path, including Windows-style paths, which
+    pathlib.Path(...).name does not strip correctly on POSIX -- so split on
+    both '/' and '\\' explicitly rather than trusting Path.
+    """
+    stored_str = str(stored_path)
+    candidate = Path(stored_str)
+    if candidate.is_absolute() and candidate.exists():
+        return str(candidate)
+    filename = stored_str.replace("\\", "/").rsplit("/", 1)[-1]
+    return str(models_run_dir(run_id) / filename)
 
 
 def _predict_sklearn(artifact_path, labels, pil_img):
@@ -50,10 +68,11 @@ def predict_all(pil_img, run_id=None):
             continue
         labels = json.loads(m["labels"])
         try:
+            resolved_path = _resolve_artifact_path(run["id"], m["artifact_path"])
             if model_type == "cnn":
-                pred = _predict_cnn(m["artifact_path"], labels, pil_img)
+                pred = _predict_cnn(resolved_path, labels, pil_img)
             else:
-                pred = _predict_sklearn(m["artifact_path"], labels, pil_img)
+                pred = _predict_sklearn(resolved_path, labels, pil_img)
             pred["status"] = "ok"
             pred["accuracy_at_train"] = m["accuracy"]
             results[model_type] = pred
