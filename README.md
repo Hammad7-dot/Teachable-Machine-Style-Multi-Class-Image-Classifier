@@ -9,6 +9,8 @@ Built to the spec in `Rules.md` / `decisions.md` / `Blocked.md` — see those
 files for the binding requirements, the architecture decisions and why, and
 a log of assumptions made where the spec was silent.
 
+![Dashboard screenshot](docs/screenshots/dashboard.png)
+
 ## What's inside
 
 - **Backend:** FastAPI (Python), real scikit-learn + TensorFlow/Keras models,
