@@ -1,0 +1,16 @@
+# Runtime data -- never commit: contains local file paths, personal training
+# images, and binary model artifacts. Portability bug D17 in decisions.md
+# was caused by exactly this (a committed storage/app.db baked in another
+# machine's absolute paths). Treat storage/ as pure runtime state.
+storage/
+
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+.DS_Store
+.vscode/
+.idea/

@@ -169,3 +169,13 @@ flow from upload through to prediction.
   `Blocked.md` B4.
 - Capture-then-predict webcam mode only, not continuous live-stream
   predictions — see `Blocked.md` B6.
+
+## Important: never commit `storage/`
+
+`storage/` (the SQLite DB, uploaded images, and trained model files) is
+runtime data and is gitignored. A previous commit accidentally included it,
+which baked one machine's absolute file paths into the database — cloning
+onto a different machine or OS broke every prediction and any retraining,
+even though the files themselves were right there. See `decisions.md` D17
+for the full story and the fix. If you're starting fresh, `storage/` is
+created automatically on first run; there's nothing to set up.

@@ -104,7 +104,9 @@ async def upload_images(name: str, files: List[UploadFile] = File(...)):
             rejected.append({"filename": f.filename, "reason": e.message})
             continue
         fname, path = storage.save_image(name, img, f.filename)
-        db.add_image(name, fname, path)
+        # Only the filename is trustworthy long-term (see D17) -- don't
+        # persist the absolute path storage.save_image() happens to return.
+        db.add_image(name, fname, fname)
         accepted.append(fname)
     return {"accepted": accepted, "rejected": rejected}
 
@@ -130,7 +132,15 @@ def _run_training(run_id: str):
     pil_images, y = [], []
     for rec in images:
         try:
-            im = Image.open(rec["path"]).convert("RGB")
+            # rec["path"] is legacy: older rows may hold an absolute path
+            # baked in at upload time on a different machine/OS (e.g. a
+            # Windows path from a git-committed storage/app.db) -- that
+            # breaks the moment the repo is cloned elsewhere. Always
+            # reconstruct the path from class_name + filename against this
+            # machine's actual storage/data/ instead of trusting the
+            # stored path. See decisions.md D17.
+            img_path = storage.class_dir(rec["class_name"]) / rec["filename"]
+            im = Image.open(img_path).convert("RGB")
             pil_images.append(im)
             y.append(label_to_idx[rec["class_name"]])
         except Exception:
@@ -149,7 +159,12 @@ def _run_training(run_id: str):
         try:
             trainer = TrainerCls(run_id, str(rd))
             result = trainer.train(pil_images, y, labels, make_progress_cb())
-            db.update_run_model(run_id, model_type, status="done", artifact_path=result.artifact_path,
+            db.update_run_model(run_id, model_type, status="done",
+                                 # Store only the filename, never a full path -- an absolute
+                                 # path baked in at training time breaks the moment the DB
+                                 # (or a git-committed storage/ folder) is moved to another
+                                 # machine, directory, or OS. See decisions.md D17.
+                                 artifact_path=Path(result.artifact_path).name,
                                  accuracy=result.accuracy, confusion_matrix=json.dumps(result.confusion_matrix),
                                  labels=json.dumps(result.labels), finished_at=time.time())
             _broadcast(run_id, {"type": "model_status", "model": model_type, "status": "done", "accuracy": result.accuracy})

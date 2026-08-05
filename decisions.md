@@ -171,6 +171,48 @@ Format: **Decision → Rationale → Alternatives considered → Status**
   after their first render.
 - **Status:** All three fixed and verified in `main.py`/`streamlit_app.py`.
 
+## D17. Fixed a portability bug: absolute paths persisted in the database
+- **Found via:** cloning the actual pushed repo and testing it fresh (rather
+  than only testing in the original build environment), against real data
+  the user had trained (Rock Paper Scissors, 180 images, 3 models).
+- **Bug:** `run_models.artifact_path` and `images.path` both stored the
+  *absolute* path returned at write time (e.g.
+  `D:\Download\teachable-machine-classifier\tm_final\storage\...`). Because
+  `storage/` was committed to git (see below), cloning the repo onto a
+  different machine, OS, or directory broke every prediction (model
+  artifacts unreachable) and any new training run (source images
+  unreachable) -- even though the actual files existed right there in the
+  cloned `storage/` folder, just at a different absolute path than the one
+  recorded in the database.
+- **Rationale for the fix:** absolute paths should never be persisted for
+  anything under `storage/`, since that directory's location relative to
+  the app is the only thing that should matter. Store just the filename;
+  reconstruct the full path at read time from the current
+  `MODELS_ROOT`/`DATA_ROOT` (both already computed relative to the
+  codebase location, so they're correct on whatever machine is running).
+  A backward-compatible fallback (`_resolve_artifact_path` in
+  `inference/predict.py`) extracts the filename from legacy absolute paths
+  --- including Windows-style ones, which `pathlib.Path(...).name` does
+  NOT parse correctly on Linux/Mac since backslash isn't a path separator
+  on POSIX --- so already-trained runs self-heal without retraining.
+- **Alternatives considered:** Require retraining after every clone --
+  rejected, unnecessarily destructive when the artifacts are already
+  present and valid. Store paths relative to the repo root instead of just
+  a filename -- rejected as more fragile (breaks if the repo is moved
+  without `storage/` moving with it, e.g. two clones sharing one storage
+  volume, which the Docker setup already does).
+- **Also fixed:** added `.gitignore` (excluding `storage/`, `__pycache__/`)
+  and untracked both from git, since a committed `storage/` is what let a
+  machine-specific absolute path leak into version control in the first
+  place. Also removed an accidental nested `tm_final/` copy of the whole
+  project that had been committed (looks like a delivered zip got
+  extracted inside the repo before an early commit).
+- **Verified:** against the repo's real pre-existing data -- all 3 models
+  on the existing (broken) run now predict correctly with zero retraining;
+  a brand-new training run also completes and predicts correctly, storing
+  bare filenames as designed.
+- **Status:** Fixed in `main.py` and `inference/predict.py`.
+
 ---
 
 ### Change log
@@ -179,3 +221,4 @@ Format: **Decision → Rationale → Alternatives considered → Status**
 | — | — | Initial version drafted from Level 3 spec. |
 | Build | D13, D14 | Logged network-access deviations discovered during implementation (no access to pretrained-weight hosts). |
 | Build | D15, D16 | Added dashboard endpoint + sidebar/dashboard UI in both frontends; fixed WebSocket race condition and two Streamlit navigation/blocking bugs. |
+| Build | D17 | Found and fixed a real portability bug via a clone-and-test pass against the user's actual pushed repo and real trained data: absolute paths persisted in the database broke predictions/retraining after cloning. Added `.gitignore`; untracked `storage/`; removed an accidentally-committed nested project copy.
