@@ -1,0 +1,211 @@
+"""
+FastAPI backend entrypoint. Wires data/, trainers/, models/, inference/
+together per R1 module boundaries. No ML logic lives here beyond
+orchestration/threading of the trainer modules.
+"""
+import asyncio, json, threading, time, uuid, io
+from pathlib import Path
+from typing import List
+
+from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from PIL import Image
+
+from data import db, storage
+from data.validation import (validate_image_bytes, ValidationError, validate_dataset_ready,
+                              DEFAULT_MIN_IMAGES_PER_CLASS, MIN_CLASSES_TO_TRAIN)
+from models.registry import run_dir, cache
+from trainers.logistic_regression import LogisticRegressionTrainer
+from trainers.random_forest import RandomForestTrainer
+from trainers.cnn import CNNTrainer
+from inference.predict import predict_all
+
+app = FastAPI(title="Teachable Machine-Style Classifier API")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+TRAINER_CLASSES = {
+    "logistic_regression": LogisticRegressionTrainer,
+    "random_forest": RandomForestTrainer,
+    "cnn": CNNTrainer,
+}
+
+_ws_clients = {}
+_main_loop = None
+
+
+@app.get("/api/classes")
+def get_classes():
+    counts = db.class_counts()
+    names = db.list_classes()
+    return {"classes": [{"name": n, "image_count": counts.get(n, 0)} for n in names]}
+
+
+@app.post("/api/classes")
+def create_class(name: str = Form(...)):
+    name = name.strip()
+    if not name:
+        raise HTTPException(400, "Class name cannot be empty")
+    db.add_class(name)
+    return {"ok": True}
+
+
+@app.delete("/api/classes/{name}")
+def remove_class(name: str):
+    db.delete_class(name)
+    storage.delete_class_dir(name)
+    return {"ok": True}
+
+
+@app.post("/api/classes/{name}/images")
+async def upload_images(name: str, files: List[UploadFile] = File(...)):
+    db.add_class(name)
+    accepted, rejected = [], []
+    for f in files:
+        raw = await f.read()
+        try:
+            img = validate_image_bytes(raw, f.filename)
+        except ValidationError as e:
+            rejected.append({"filename": f.filename, "reason": e.message})
+            continue
+        fname, path = storage.save_image(name, img, f.filename)
+        db.add_image(name, fname, path)
+        accepted.append(fname)
+    return {"accepted": accepted, "rejected": rejected}
+
+
+@app.get("/api/dataset/status")
+def dataset_status():
+    counts = db.class_counts()
+    ready, reason = True, None
+    try:
+        validate_dataset_ready(counts)
+    except ValidationError as e:
+        ready, reason = False, e.message
+    return {"class_counts": counts, "min_images_per_class": DEFAULT_MIN_IMAGES_PER_CLASS,
+            "min_classes": MIN_CLASSES_TO_TRAIN, "ready_to_train": ready, "reason": reason}
+
+
+def _run_training(run_id: str):
+    class_names = db.list_classes()
+    labels = sorted(class_names)
+    label_to_idx = {c: i for i, c in enumerate(labels)}
+
+    images = db.list_images()
+    pil_images, y = [], []
+    for rec in images:
+        try:
+            im = Image.open(rec["path"]).convert("RGB")
+            pil_images.append(im)
+            y.append(label_to_idx[rec["class_name"]])
+        except Exception:
+            continue
+
+    rd = run_dir(run_id)
+
+    def make_progress_cb():
+        def cb(event):
+            _broadcast(run_id, {"type": "progress", **event})
+        return cb
+
+    for model_type, TrainerCls in TRAINER_CLASSES.items():
+        db.update_run_model(run_id, model_type, status="training")
+        _broadcast(run_id, {"type": "model_status", "model": model_type, "status": "training"})
+        try:
+            trainer = TrainerCls(run_id, str(rd))
+            result = trainer.train(pil_images, y, labels, make_progress_cb())
+            db.update_run_model(run_id, model_type, status="done", artifact_path=result.artifact_path,
+                                 accuracy=result.accuracy, confusion_matrix=json.dumps(result.confusion_matrix),
+                                 labels=json.dumps(result.labels), finished_at=time.time())
+            _broadcast(run_id, {"type": "model_status", "model": model_type, "status": "done", "accuracy": result.accuracy})
+        except Exception as e:
+            db.update_run_model(run_id, model_type, status="failed", error=str(e), finished_at=time.time())
+            _broadcast(run_id, {"type": "model_status", "model": model_type, "status": "failed", "error": str(e)})
+
+    db.finish_run(run_id)
+    cache.invalidate()
+    _broadcast(run_id, {"type": "run_complete", "run_id": run_id})
+
+
+def _broadcast(run_id, message):
+    clients = _ws_clients.get(run_id, [])
+    if not clients or _main_loop is None:
+        return
+    dead = []
+    for ws in clients:
+        try:
+            asyncio.run_coroutine_threadsafe(ws.send_json(message), _main_loop)
+        except Exception:
+            dead.append(ws)
+    for d in dead:
+        clients.remove(d)
+
+
+@app.post("/api/train")
+def start_training():
+    counts = db.class_counts()
+    try:
+        validate_dataset_ready(counts)
+    except ValidationError as e:
+        raise HTTPException(400, e.message)
+
+    run_id = uuid.uuid4().hex[:12]
+    db.create_run(run_id, sorted(db.list_classes()))
+    _ws_clients[run_id] = []
+
+    t = threading.Thread(target=_run_training, args=(run_id,), daemon=True)
+    t.start()
+    return {"run_id": run_id}
+
+
+@app.get("/api/runs")
+def get_runs():
+    return {"runs": db.list_runs()}
+
+
+@app.get("/api/runs/{run_id}")
+def get_run(run_id: str):
+    run = db.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "run not found")
+    for m in run["models"]:
+        if m.get("confusion_matrix"):
+            m["confusion_matrix"] = json.loads(m["confusion_matrix"])
+        if m.get("labels"):
+            m["labels"] = json.loads(m["labels"])
+    run["class_names"] = json.loads(run["class_names"])
+    return run
+
+
+@app.websocket("/ws/train/{run_id}")
+async def ws_train(websocket: WebSocket, run_id: str):
+    global _main_loop
+    _main_loop = asyncio.get_event_loop()
+    await websocket.accept()
+    _ws_clients.setdefault(run_id, []).append(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        if websocket in _ws_clients.get(run_id, []):
+            _ws_clients[run_id].remove(websocket)
+
+
+@app.post("/api/predict")
+async def predict(file: UploadFile = File(...), run_id: str = Form(None)):
+    raw = await file.read()
+    try:
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+    except Exception:
+        raise HTTPException(400, "Could not read image")
+    return predict_all(img, run_id)
+
+
+UI_DIR = Path(__file__).resolve().parent / "ui"
+app.mount("/static", StaticFiles(directory=str(UI_DIR)), name="static")
+
+
+@app.get("/")
+def index():
+    return FileResponse(str(UI_DIR / "index.html"))

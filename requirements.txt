@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+websockets
+pillow
+numpy
+scikit-learn
+scikit-image
+joblib
+tensorflow-cpu
+streamlit
+requests
+pandas

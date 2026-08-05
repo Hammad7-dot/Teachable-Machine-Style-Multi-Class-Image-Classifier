@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Teachable Machine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --border: #2a2f3a;
+    --text: #e8eaed; --muted: #9aa3b2; --accent: #6c8cff; --accent2: #7ee0c3;
+    --danger: #ff6b7a; --warn: #ffbf5f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .app { max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--text); }
+  .class-row { display: flex; align-items: center; justify-content: space-between; background: var(--panel2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .class-name { font-weight: 500; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #2a3040; color: var(--muted); }
+  .badge.ok { background: #1e3a2f; color: var(--accent2); }
+  .badge.low { background: #3a2a1e; color: var(--warn); }
+  button { cursor: pointer; border: none; border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 500; background: var(--accent); color: white; }
+  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: #3a1e22; color: var(--danger); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  input[type=text] { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 10px; font-size: 13px; width: 100%; }
+  .row { display: flex; gap: 8px; }
+  .file-drop { border: 1.5px dashed var(--border); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); font-size: 13px; cursor: pointer; margin-top: 6px; }
+  .file-drop:hover { border-color: var(--accent); }
+  .progress-bar { height: 8px; border-radius: 4px; background: var(--panel2); overflow: hidden; margin: 6px 0; }
+  .progress-bar > div { height: 100%; background: var(--accent); transition: width 0.3s ease; }
+  .model-block { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .model-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; display:flex; justify-content:space-between; align-items:center;}
+  .status-pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+  .status-pending { background: #2a3040; color: var(--muted); }
+  .status-training { background: #2a3a5a; color: var(--accent); }
+  .status-complete { background: #1e3a2f; color: var(--accent2); }
+  .status-failed { background: #3a1e22; color: var(--danger); }
+  .predict-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .pred-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--panel2); }
+  .pred-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .pred-value { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .prob-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin: 2px 0; }
+  video, canvas.preview { width: 100%; border-radius: 8px; background: #000; }
+  table.cm { border-collapse: collapse; width: 100%; font-size: 11px; margin-top: 8px; }
+  table.cm th, table.cm td { border: 1px solid var(--border); padding: 4px 6px; text-align: center; }
+  table.cm th { color: var(--muted); font-weight: 500; }
+  .heatcell { color: white; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .tabs button { padding: 6px 10px; font-size: 12px; }
+  .log { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); max-height: 120px; overflow-y: auto; background: #0b0d12; border-radius: 8px; padding: 8px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .err { color: var(--danger); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+const API = "";
+
+function useApi() {
+  const get = (path) => fetch(API + path).then(r => r.json());
+  const post = (path, body) => fetch(API + path, {
+    method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" },
+  }).then(r => r.json());
+  const del = (path) => fetch(API + path, { method: "DELETE" }).then(r => r.json());
+  return { get, post, del };
+}
+
+const MODEL_LABELS = {
+  logistic_regression: "Logistic Regression",
+  random_forest: "Random Forest",
+  cnn: "CNN (MobileNetV2)",
+};
+
+function StatusPill({ status }) {
+  return <span className={"status-pill status-" + status}>{status}</span>;
+}
+
+function ClassManager({ classes, refresh, minImages }) {
+  const { del } = useApi();
+  const [newName, setNewName] = useState("");
+  const [error, setError] = useState(null);
+  const fileInputs = useRef({});
+
+  const addClass = async () => {
+    if (!newName.trim()) return;
+    const fd = new FormData(); fd.append("name", newName);
+    const res = await fetch("/api/classes", { method: "POST", body: fd }).then(r => r.json());
+    if (res.error) setError(res.error); else { setError(null); setNewName(""); refresh(); }
+  };
+
+  const removeClass = async (name) => { await del("/api/classes/" + encodeURIComponent(name)); refresh(); };
+
+  const handleFiles = async (name, fileList) => {
+    const fd = new FormData();
+    Array.from(fileList).forEach(f => fd.append("files", f));
+    const res = await fetch("/api/classes/" + encodeURIComponent(name) + "/images", { method: "POST", body: fd }).then(r => r.json());
+    if (res.rejected && res.rejected.length) {
+      setError(res.rejected.map(r => r.filename + ": " + r.reason).join("; "));
+    } else setError(null);
+    refresh();
+  };
+
+  return (
+    <div className="card">
+      <h2>1. Classes</h2>
+      <div className="row" style={{ marginBottom: 12 }}>
+        <input type="text" placeholder="New class name" value={newName}
+          onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && addClass()} />
+        <button onClick={addClass}>Add</button>
+      </div>
+      {error && <div className="err">{error}</div>}
+      {classes.map(c => (
+        <div className="class-row" key={c.name}>
+          <div>
+            <div className="class-name">{c.name}</div>
+            <span className={"badge " + (c.image_count >= minImages ? "ok" : "low")}>
+              {c.image_count} / {minImages} images
+            </span>
+          </div>
+          <div className="row">
+            <button className="secondary" onClick={() => fileInputs.current[c.name].click()}>Upload</button>
+            <input type="file" multiple accept="image/jpeg,image/png,image/webp" style={{ display: "none" }}
+              ref={el => fileInputs.current[c.name] = el}
+              onChange={e => handleFiles(c.name, e.target.files)} />
+            <button className="danger" onClick={() => removeClass(c.name)}>Delete</button>
+          </div>
+        </div>
+      ))}
+      {classes.length === 0 && <div className="muted">No classes yet — add at least 2 to start training.</div>}
+    </div>
+  );
+}
+
+function TrainPanel({ ready, reasonText, onTrained }) {
+  const { post } = useApi();
+  const [modelStates, setModelStates] = useState({});
+  const [log, setLog] = useState([]);
+  const [training, setTraining] = useState(false);
+
+  const appendLog = (line) => setLog(l => [...l.slice(-60), line]);
+
+  const startTraining = async () => {
+    setTraining(true);
+    setModelStates({
+      logistic_regression: { status: "pending", pct: 0 },
+      random_forest: { status: "pending", pct: 0 },
+      cnn: { status: "pending", pct: 0 },
+    });
+    setLog([]);
+    const res = await post("/api/train", {});
+    if (res.error) { appendLog("Error: " + res.error); setTraining(false); return; }
+    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/train/" + res.run_id);
+    ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data);
+      if (msg.stage === "run_complete") { setTraining(false); onTrained(); return; }
+      const mt = msg.model_type;
+      if (!mt) return;
+      setModelStates(prev => ({
+        ...prev,
+        [mt]: {
+          status: msg.stage === "start" ? "training" : msg.stage === "eval" ? "complete" : msg.stage === "error" ? "failed" : (prev[mt]?.status || "training"),
+          pct: msg.pct !== undefined ? msg.pct : (msg.stage === "eval" ? 100 : prev[mt]?.pct || 0),
+          accuracy: msg.accuracy !== undefined ? msg.accuracy : prev[mt]?.accuracy,
+        }
+      }));
+      if (msg.stage === "progress") appendLog(`[${mt}] ${msg.stage} ${msg.pct}%`);
+      if (msg.stage === "eval") appendLog(`[${mt}] done — accuracy ${(msg.accuracy * 100).toFixed(1)}%`);
+      if (msg.stage === "error") appendLog(`[${mt}] ERROR: ${msg.error}`);
+    };
+  };
+
+  return (
+    <div className="card">
+      <h2>2. Train</h2>
+      <button onClick={startTraining} disabled={!ready || training}>
+        {training ? "Training..." : "Train All Models"}
+      </button>
+      {!ready && <div className="muted" style={{ marginTop: 8 }}>{reasonText}</div>}
+      {Object.keys(modelStates).length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          {Object.entries(modelStates).map(([mt, st]) => (
+            <div className="model-block" key={mt}>
+              <div className="model-title">
+                <span>{MODEL_LABELS[mt]}</span>
+                <StatusPill status={st.status} />
+              </div>
+              <div className="progress-bar"><div style={{ width: (st.pct || 0) + "%" }}></div></div>
+              {st.accuracy !== undefined && <div className="muted">Accuracy: {(st.accuracy * 100).toFixed(1)}%</div>}
+            </div>
+          ))}
+          <div className="log">{log.map((l, i) => <div key={i}>{l}</div>)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function heatColor(value, max) {
+  const t = max > 0 ? value / max : 0;
+  const r = Math.round(30 + t * 100);
+  const g = Math.round(60 + t * 120);
+  const b = Math.round(100 + t * 60);
+  return `rgb(${r},${g},${b})`;
+}
+
+function ConfusionMatrix({ labels, matrix }) {
+  const [view, setView] = useState("heatmap");
+  const max = Math.max(1, ...matrix.flat());
+  return (
+    <div>
+      <div className="tabs">
+        <button className={view === "heatmap" ? "" : "secondary"} onClick={() => setView("heatmap")}>Heatmap</button>
+        <button className={view === "table" ? "" : "secondary"} onClick={() => setView("table")}>Table</button>
+      </div>
+      <table className="cm">
+        <thead><tr><th></th>{labels.map(l => <th key={l}>{l}</th>)}</tr></thead>
+        <tbody>
+          {matrix.map((row, i) => (
+            <tr key={i}>
+              <th>{labels[i]}</th>
+              {row.map((val, j) => (
+                <td key={j} className={view === "heatmap" ? "heatcell" : ""}
+                  style={view === "heatmap" ? { background: heatColor(val, max) } : {}}>
+                  {val}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="muted" style={{ marginTop: 4 }}>Rows = actual class, columns = predicted class.</div>
+    </div>
+  );
+}
+
+function ResultsPanel({ run }) {
+  if (!run) return null;
+  return (
+    <div className="card">
+      <h2>3. Evaluation Results</h2>
+      {Object.entries(run.models).map(([mt, m]) => (
+        <div className="model-block" key={mt}>
+          <div className="model-title">
+            <span>{MODEL_LABELS[mt]}</span>
+            <StatusPill status={m.status} />
+          </div>
+          {m.status === "complete" ? (
+            <React.Fragment>
+              <div className="muted">Accuracy: {(m.accuracy * 100).toFixed(1)}%</div>
+              {m.confusion_matrix && m.labels && <ConfusionMatrix labels={m.labels} matrix={m.confusion_matrix} />}
+            </React.Fragment>
+          ) : (
+            <div className="muted">{m.status === "failed" ? ("Unavailable — " + (m.error || "training failed")) : "Not yet trained."}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PredictPanel({ hasTrainedRun }) {
+  const [preview, setPreview] = useState(null);
+  const [predictions, setPredictions] = useState(null);
+  const [error, setError] = useState(null);
+  const [mode, setMode] = useState("upload");
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const runPredict = async (blob) => {
+    setError(null);
+    const fd = new FormData();
+    fd.append("file", blob, "frame.png");
+    const res = await fetch("/api/predict", { method: "POST", body: fd }).then(r => r.json());
+    if (res.error) { setError(res.error); return; }
+    setPredictions(res.predictions);
+  };
+
+  const onFileChange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setPreview(URL.createObjectURL(f));
+    runPredict(f);
+  };
+
+  const startWebcam = async () => {
+    setMode("webcam");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (e) {
+      setError("Webcam permission denied or unavailable: " + e.message);
+    }
+  };
+
+  const stopWebcam = () => {
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    setMode("upload");
+  };
+
+  const captureFrame = () => {
+    const video = videoRef.current, canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    canvas.toBlob(blob => { setPreview(URL.createObjectURL(blob)); runPredict(blob); }, "image/png");
+  };
+
+  useEffect(() => () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); }, []);
+
+  return (
+    <div className="card">
+      <h2>4. Predict</h2>
+      {!hasTrainedRun && <div className="muted">Train models first to enable predictions.</div>}
+      {hasTrainedRun && (
+        <React.Fragment>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <button className={mode === "upload" ? "" : "secondary"} onClick={() => { stopWebcam(); }}>Upload Image</button>
+            <button className={mode === "webcam" ? "" : "secondary"} onClick={startWebcam}>Use Webcam</button>
+          </div>
+          {mode === "upload" && (
+            <div className="file-drop" onClick={() => document.getElementById("predict-file").click()}>
+              Click to choose an image
+              <input id="predict-file" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={onFileChange} />
+            </div>
+          )}
+          {mode === "webcam" && (
+            <div>
+              <video ref={videoRef} autoPlay playsInline muted></video>
+              <div className="row" style={{ marginTop: 8 }}>
+                <button onClick={captureFrame}>Capture & Predict</button>
+                <button className="secondary" onClick={stopWebcam}>Stop</button>
+              </div>
+            </div>
+          )}
+          <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
+          {error && <div className="err">{error}</div>}
+          {preview && <img src={preview} alt="preview" style={{ maxWidth: 200, borderRadius: 8, marginTop: 10 }} />}
+          {predictions && (
+            <div className="predict-grid" style={{ marginTop: 14 }}>
+              {Object.entries(predictions).map(([mt, p]) => (
+                <div className="pred-card" key={mt}>
+                  <div className="pred-label">{MODEL_LABELS[mt]}</div>
+                  {p.available ? (
+                    <React.Fragment>
+                      <div className="pred-value">{p.prediction}</div>
+                      <div className="muted" style={{ marginBottom: 6 }}>{(p.confidence * 100).toFixed(1)}% confidence</div>
+                      {Object.entries(p.probabilities).map(([label, prob]) => (
+                        <div className="prob-row" key={label}><span>{label}</span><span>{(prob * 100).toFixed(1)}%</span></div>
+                      ))}
+                    </React.Fragment>
+                  ) : (
+                    <div className="muted">Unavailable — {p.reason}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const { get } = useApi();
+  const [classes, setClasses] = useState([]);
+  const [readyInfo, setReadyInfo] = useState({ ready: false, reason: "" });
+  const [minImages] = useState(10);
+  const [latestRun, setLatestRun] = useState(null);
+
+  const refreshClasses = useCallback(async () => {
+    const res = await get("/api/classes");
+    setClasses(res.classes || []);
+    const ready = await get("/api/ready-to-train");
+    setReadyInfo(ready);
+  }, []);
+
+  const refreshLatestRun = useCallback(async () => {
+    const res = await get("/api/runs/latest");
+    if (!res.error) setLatestRun(res);
+  }, []);
+
+  useEffect(() => { refreshClasses(); refreshLatestRun(); }, []);
+
+  return (
+    <div className="app">
+      <h1>Teachable Machine — Multi-Class Image Classifier</h1>
+      <div className="sub">Create classes, upload or capture images, train Logistic Regression / Random Forest / CNN together, and compare predictions live.</div>
+      <div className="grid">
+        <div>
+          <ClassManager classes={classes} refresh={refreshClasses} minImages={minImages} />
+          <TrainPanel ready={readyInfo.ready} reasonText={readyInfo.reason} onTrained={() => { refreshLatestRun(); }} />
+        </div>
+        <div>
+          <ResultsPanel run={latestRun} />
+          <PredictPanel hasTrainedRun={!!latestRun} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

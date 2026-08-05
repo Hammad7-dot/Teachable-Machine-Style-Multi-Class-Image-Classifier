@@ -1,0 +1,7 @@
+storage/
+__pycache__/
+*.pyc
+.git
+.gitignore
+*.md
+docs/

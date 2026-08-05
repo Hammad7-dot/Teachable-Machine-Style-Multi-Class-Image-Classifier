@@ -1,0 +1,23 @@
+services:
+  api:
+    build: .
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - classifier_storage:/app/storage
+    restart: unless-stopped
+
+  streamlit:
+    build: .
+    command: streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+    environment:
+      - API_BASE_URL=http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  classifier_storage:
