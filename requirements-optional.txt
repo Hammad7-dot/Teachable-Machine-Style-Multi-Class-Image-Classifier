@@ -1,0 +1,2 @@
+# Optional: only needed for scripts/download_rock_paper_scissors.py
+tensorflow-datasets
