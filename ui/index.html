@@ -2,63 +2,76 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Teachable Machine</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<title>Teachable Machine — Multi-Class Image Classifier</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
   :root {
     --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --border: #2a2f3a;
-    --text: #e8eaed; --muted: #9aa3b2; --accent: #6c8cff; --accent2: #7ee0c3;
-    --danger: #ff6b7a; --warn: #ffbf5f;
+    --text: #e8eaed; --muted: #9aa3b2; --accent: #7c9eff; --accent2: #6fd7a3;
+    --danger: #ff6b6b; --warn: #ffb84d; --sidebar-w: 220px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .app { max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
-  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
-  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--text); }
-  .class-row { display: flex; align-items: center; justify-content: space-between; background: var(--panel2); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
-  .class-name { font-weight: 500; }
-  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #2a3040; color: var(--muted); }
-  .badge.ok { background: #1e3a2f; color: var(--accent2); }
-  .badge.low { background: #3a2a1e; color: var(--warn); }
-  button { cursor: pointer; border: none; border-radius: 8px; padding: 9px 14px; font-size: 13px; font-weight: 500; background: var(--accent); color: white; }
-  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
-  button.danger { background: #3a1e22; color: var(--danger); }
-  button:disabled { opacity: 0.4; cursor: not-allowed; }
-  input[type=text] { background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 10px; font-size: 13px; width: 100%; }
-  .row { display: flex; gap: 8px; }
-  .file-drop { border: 1.5px dashed var(--border); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); font-size: 13px; cursor: pointer; margin-top: 6px; }
-  .file-drop:hover { border-color: var(--accent); }
-  .progress-bar { height: 8px; border-radius: 4px; background: var(--panel2); overflow: hidden; margin: 6px 0; }
-  .progress-bar > div { height: 100%; background: var(--accent); transition: width 0.3s ease; }
-  .model-block { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
-  .model-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; display:flex; justify-content:space-between; align-items:center;}
-  .status-pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
-  .status-pending { background: #2a3040; color: var(--muted); }
-  .status-training { background: #2a3a5a; color: var(--accent); }
-  .status-complete { background: #1e3a2f; color: var(--accent2); }
-  .status-failed { background: #3a1e22; color: var(--danger); }
-  .predict-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-  .pred-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--panel2); }
-  .pred-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  .pred-value { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-  .prob-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin: 2px 0; }
-  video, canvas.preview { width: 100%; border-radius: 8px; background: #000; }
-  table.cm { border-collapse: collapse; width: 100%; font-size: 11px; margin-top: 8px; }
-  table.cm th, table.cm td { border: 1px solid var(--border); padding: 4px 6px; text-align: center; }
-  table.cm th { color: var(--muted); font-weight: 500; }
-  .heatcell { color: white; }
-  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-  .tabs button { padding: 6px 10px; font-size: 12px; }
-  .log { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); max-height: 120px; overflow-y: auto; background: #0b0d12; border-radius: 8px; padding: 8px; }
-  .muted { color: var(--muted); font-size: 12px; }
-  .err { color: var(--danger); font-size: 12px; margin-top: 6px; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, Inter, Segoe UI, Roboto, sans-serif; }
+  .shell { display:flex; min-height:100vh; }
+  .sidebar { width:var(--sidebar-w); flex-shrink:0; background:var(--panel); border-right:1px solid var(--border); padding:20px 12px; position:sticky; top:0; height:100vh; }
+  .brand { font-size:15px; font-weight:700; padding:0 10px 18px; }
+  .brand span { color:var(--accent2); }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; cursor:pointer; color:var(--muted); font-size:13.5px; font-weight:500; margin-bottom:2px; }
+  .nav-item:hover { background:var(--panel2); color:var(--text); }
+  .nav-item.active { background:#1a2540; color:var(--accent); }
+  .nav-icon { font-size:15px; width:18px; text-align:center; }
+  .main { flex:1; padding: 24px 28px 80px; max-width:1180px; }
+  h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+  .card { background: var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  input[type=text] { background:var(--panel2); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:8px; font-size:14px; }
+  button { background: var(--accent); color:#0b0d12; border:none; padding:8px 14px; border-radius:8px; font-weight:600; cursor:pointer; font-size:13px; }
+  button.secondary { background: var(--panel2); color:var(--text); border:1px solid var(--border); }
+  button:disabled { opacity:0.5; cursor:not-allowed; }
+  .class-card { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px; min-width:220px; flex:1; }
+  .class-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .count-badge { font-size:12px; padding:2px 8px; border-radius:999px; background:#2a2f3a; color:var(--muted); }
+  .count-badge.ok { background:#1d3327; color:var(--accent2); }
+  .drop { border:2px dashed var(--border); border-radius:10px; padding:16px; text-align:center; color:var(--muted); font-size:13px; margin-top:8px; cursor:pointer; }
+  .drop:hover { border-color: var(--accent); }
+  .status-banner { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+  .status-banner.ready { background:#12271c; color:var(--accent2); border:1px solid #234a35; }
+  .status-banner.notready { background:#2b2011; color:var(--warn); border:1px solid #4a3a1a; }
+  .progress-wrap { background:var(--panel2); border-radius:6px; height:8px; overflow:hidden; margin:6px 0; }
+  .progress-bar { background:var(--accent); height:100%; transition: width 0.3s ease; }
+  .model-block { border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px; background:var(--panel2); }
+  .model-header { display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; margin-bottom:6px;}
+  .badge { font-size:11px; padding:2px 8px; border-radius:999px; }
+  .badge.pending { background:#2a2f3a; color:var(--muted); }
+  .badge.training { background:#1a2a4a; color:var(--accent); }
+  .badge.done { background:#1d3327; color:var(--accent2); }
+  .badge.failed, .badge.unavailable { background:#3a1414; color:var(--danger); }
+  .log-line { font-size:12px; color:var(--muted); font-family: ui-monospace, monospace; }
+  .grid3 { display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
+  .grid4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
+  @media (max-width: 900px) { .grid3, .grid4 { grid-template-columns: 1fr; } .shell { flex-direction:column; } .sidebar { width:100%; height:auto; position:static; } }
+  table.cm { border-collapse:collapse; font-size:11px; margin-top:8px; }
+  table.cm td, table.cm th { border:1px solid var(--border); padding:4px 6px; text-align:center; min-width:26px; }
+  table.cm th { color:var(--muted); font-weight:500; }
+  .predict-panel { display:flex; gap:20px; flex-wrap:wrap; }
+  .predict-input { flex:1; min-width:280px; }
+  video, img.preview { width:100%; max-width:340px; border-radius:10px; border:1px solid var(--border); background:#000; }
+  .prob-bar-wrap { background:var(--panel2); border-radius:5px; height:6px; overflow:hidden; margin-top:2px;}
+  .prob-bar { background:var(--accent2); height:100%; }
+  .prob-row { font-size:12px; margin-bottom:6px; }
+  .top-pred { font-size:18px; font-weight:700; color:var(--accent2); }
+  .muted { color: var(--muted); font-size:12px; }
+  .stat-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .stat-value { font-size:26px; font-weight:700; }
+  .stat-label { font-size:12px; color:var(--muted); margin-top:2px; }
+  .bar-chart-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .bar-chart-label { width:150px; font-size:12px; color:var(--muted); flex-shrink:0; }
+  .bar-chart-track { flex:1; background:var(--panel2); border-radius:6px; height:18px; overflow:hidden; }
+  .bar-chart-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:flex-end; padding-right:6px; font-size:11px; font-weight:600; color:#0b0d12; }
 </style>
 </head>
 <body>
@@ -67,201 +80,372 @@
 const { useState, useEffect, useRef, useCallback } = React;
 const API = "";
 
-function useApi() {
-  const get = (path) => fetch(API + path).then(r => r.json());
-  const post = (path, body) => fetch(API + path, {
-    method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" },
-  }).then(r => r.json());
-  const del = (path) => fetch(API + path, { method: "DELETE" }).then(r => r.json());
-  return { get, post, del };
-}
-
 const MODEL_LABELS = {
   logistic_regression: "Logistic Regression",
   random_forest: "Random Forest",
-  cnn: "CNN (MobileNetV2)",
+  cnn: "CNN (trained from scratch)",
 };
 
-function StatusPill({ status }) {
-  return <span className={"status-pill status-" + status}>{status}</span>;
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: "\u25A6" },
+  { id: "data", label: "Classes & Data", icon: "\u25A3" },
+  { id: "train", label: "Train", icon: "\u25B6" },
+  { id: "results", label: "Results", icon: "\u25A4" },
+  { id: "predict", label: "Predict", icon: "\u2726" },
+];
+
+function useClasses() {
+  const [classes, setClasses] = useState([]);
+  const [status, setStatus] = useState(null);
+  const refresh = useCallback(async () => {
+    const c = await fetch(`${API}/api/classes`).then(r => r.json());
+    setClasses(c.classes);
+    const s = await fetch(`${API}/api/dataset/status`).then(r => r.json());
+    setStatus(s);
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { classes, status, refresh };
 }
 
-function ClassManager({ classes, refresh, minImages }) {
-  const { del } = useApi();
-  const [newName, setNewName] = useState("");
-  const [error, setError] = useState(null);
-  const fileInputs = useRef({});
-
-  const addClass = async () => {
-    if (!newName.trim()) return;
-    const fd = new FormData(); fd.append("name", newName);
-    const res = await fetch("/api/classes", { method: "POST", body: fd }).then(r => r.json());
-    if (res.error) setError(res.error); else { setError(null); setNewName(""); refresh(); }
-  };
-
-  const removeClass = async (name) => { await del("/api/classes/" + encodeURIComponent(name)); refresh(); };
-
-  const handleFiles = async (name, fileList) => {
-    const fd = new FormData();
-    Array.from(fileList).forEach(f => fd.append("files", f));
-    const res = await fetch("/api/classes/" + encodeURIComponent(name) + "/images", { method: "POST", body: fd }).then(r => r.json());
-    if (res.rejected && res.rejected.length) {
-      setError(res.rejected.map(r => r.filename + ": " + r.reason).join("; "));
-    } else setError(null);
-    refresh();
-  };
-
+function Sidebar({ tab, setTab }) {
   return (
-    <div className="card">
-      <h2>1. Classes</h2>
-      <div className="row" style={{ marginBottom: 12 }}>
-        <input type="text" placeholder="New class name" value={newName}
-          onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && addClass()} />
-        <button onClick={addClass}>Add</button>
-      </div>
-      {error && <div className="err">{error}</div>}
-      {classes.map(c => (
-        <div className="class-row" key={c.name}>
-          <div>
-            <div className="class-name">{c.name}</div>
-            <span className={"badge " + (c.image_count >= minImages ? "ok" : "low")}>
-              {c.image_count} / {minImages} images
-            </span>
-          </div>
-          <div className="row">
-            <button className="secondary" onClick={() => fileInputs.current[c.name].click()}>Upload</button>
-            <input type="file" multiple accept="image/jpeg,image/png,image/webp" style={{ display: "none" }}
-              ref={el => fileInputs.current[c.name] = el}
-              onChange={e => handleFiles(c.name, e.target.files)} />
-            <button className="danger" onClick={() => removeClass(c.name)}>Delete</button>
-          </div>
+    <div className="sidebar">
+      <div className="brand">🧠 <span>Teachable</span> Machine</div>
+      {NAV_ITEMS.map(item => (
+        <div key={item.id} className={`nav-item ${tab === item.id ? "active" : ""}`} onClick={() => setTab(item.id)}>
+          <span className="nav-icon">{item.icon}</span>
+          <span>{item.label}</span>
         </div>
       ))}
-      {classes.length === 0 && <div className="muted">No classes yet — add at least 2 to start training.</div>}
     </div>
   );
 }
 
-function TrainPanel({ ready, reasonText, onTrained }) {
-  const { post } = useApi();
-  const [modelStates, setModelStates] = useState({});
+function Dashboard({ setTab }) {
+  const [dash, setDash] = useState(null);
+
+  const load = async () => {
+    const d = await fetch(`${API}/api/dashboard`).then(r => r.json());
+    setDash(d);
+  };
+  useEffect(() => { load(); }, []);
+
+  if (!dash) return <p className="muted">Loading...</p>;
+
+  const maxAcc = dash.latest_run
+    ? Math.max(0.01, ...dash.latest_run.models.filter(m => m.accuracy != null).map(m => m.accuracy))
+    : 1;
+
+  return (
+    <div>
+      <div className="grid4">
+        <div className="stat-card">
+          <div className="stat-value">{dash.total_classes}</div>
+          <div className="stat-label">Classes</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{dash.total_images}</div>
+          <div className="stat-label">Images uploaded</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{dash.total_runs}</div>
+          <div className="stat-label">Training runs</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{dash.completed_runs}</div>
+          <div className="stat-label">Completed runs</div>
+        </div>
+      </div>
+
+      <div className="card" style={{marginTop:16}}>
+        <h3 style={{marginTop:0, fontSize:14}}>Images per class</h3>
+        {Object.keys(dash.class_counts).length === 0 && <p className="muted">No classes yet.</p>}
+        {Object.entries(dash.class_counts).map(([name, n]) => (
+          <div className="bar-chart-row" key={name}>
+            <div className="bar-chart-label">{name}</div>
+            <div className="bar-chart-track">
+              <div className="bar-chart-fill" style={{width: `${Math.min(100, (n/Math.max(1,...Object.values(dash.class_counts)))*100)}%`}}>{n}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <h3 style={{marginTop:0, fontSize:14}}>Latest training run</h3>
+        {!dash.latest_run && (
+          <div>
+            <p className="muted">No completed runs yet.</p>
+            <button onClick={() => setTab("train")}>Go train a model</button>
+          </div>
+        )}
+        {dash.latest_run && dash.latest_run.models.map(m => (
+          <div className="bar-chart-row" key={m.model_type}>
+            <div className="bar-chart-label">{MODEL_LABELS[m.model_type]}</div>
+            <div className="bar-chart-track">
+              {m.status === "done" ? (
+                <div className="bar-chart-fill" style={{width: `${(m.accuracy/maxAcc)*100}%`}}>
+                  {(m.accuracy*100).toFixed(1)}%
+                </div>
+              ) : (
+                <span className="muted" style={{fontSize:11, paddingLeft:6}}>{m.status}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ClassManager({ classes, status, refresh }) {
+  const [newName, setNewName] = useState("");
+  const fileInputs = useRef({});
+
+  const addClass = async () => {
+    if (!newName.trim()) return;
+    await fetch(`${API}/api/classes`, { method: "POST", body: new URLSearchParams({ name: newName.trim() }) });
+    setNewName("");
+    refresh();
+  };
+
+  const deleteClass = async (name) => {
+    await fetch(`${API}/api/classes/${encodeURIComponent(name)}`, { method: "DELETE" });
+    refresh();
+  };
+
+  const uploadFiles = async (name, files) => {
+    const fd = new FormData();
+    for (const f of files) fd.append("files", f);
+    const res = await fetch(`${API}/api/classes/${encodeURIComponent(name)}/images`, { method: "POST", body: fd });
+    const json = await res.json();
+    if (json.rejected && json.rejected.length) {
+      alert("Some files were rejected:\n" + json.rejected.map(r => `${r.filename}: ${r.reason}`).join("\n"));
+    }
+    refresh();
+  };
+
+  return (
+    <div>
+      {status && (
+        <div className={`status-banner ${status.ready_to_train ? "ready" : "notready"}`}>
+          {status.ready_to_train
+            ? `Dataset ready — ${classes.length} classes, ${Object.values(status.class_counts).reduce((a,b)=>a+b,0)} images total.`
+            : `Not ready: ${status.reason}`}
+        </div>
+      )}
+      <div className="card">
+        <div className="row" style={{alignItems:"center"}}>
+          <input type="text" placeholder="New class name (e.g. cat)" value={newName}
+            onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key==="Enter" && addClass()} />
+          <button onClick={addClass}>+ Add class</button>
+        </div>
+      </div>
+
+      <div className="row">
+        {classes.map(c => (
+          <div className="class-card" key={c.name}>
+            <div className="class-title">
+              <strong>{c.name}</strong>
+              <span className={`count-badge ${c.image_count >= (status?.min_images_per_class||10) ? "ok" : ""}`}>
+                {c.image_count}/{status?.min_images_per_class ?? 10}
+              </span>
+            </div>
+            <div className="drop" onClick={() => fileInputs.current[c.name].click()}>
+              Click to upload images (JPEG/PNG/WebP)
+            </div>
+            <input ref={el => fileInputs.current[c.name] = el} type="file" multiple accept="image/jpeg,image/png,image/webp"
+              style={{display:"none"}} onChange={e => e.target.files.length && uploadFiles(c.name, e.target.files)} />
+            <div className="row" style={{marginTop:8}}>
+              <button className="secondary" style={{fontSize:11}} onClick={() => deleteClass(c.name)}>Delete class</button>
+            </div>
+          </div>
+        ))}
+        {classes.length === 0 && <p className="muted">No classes yet — add at least 2 to start training.</p>}
+      </div>
+    </div>
+  );
+}
+
+function ConfusionMatrix({ cm, labels }) {
+  if (!cm || !labels) return null;
+  const max = Math.max(1, ...cm.flat());
+  return (
+    <table className="cm">
+      <thead><tr><th></th>{labels.map(l => <th key={l}>{l}</th>)}</tr></thead>
+      <tbody>
+        {cm.map((row, i) => (
+          <tr key={i}>
+            <th>{labels[i]}</th>
+            {row.map((v, j) => {
+              const intensity = v / max;
+              const bg = i === j
+                ? `rgba(111,215,163,${0.15+0.65*intensity})`
+                : `rgba(255,107,107,${0.1+0.55*intensity})`;
+              return <td key={j} style={{background:bg}}>{v}</td>;
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function TrainPanel({ status, refresh }) {
+  const [models, setModels] = useState({
+    logistic_regression: { status: "pending" },
+    random_forest: { status: "pending" },
+    cnn: { status: "pending" },
+  });
   const [log, setLog] = useState([]);
   const [training, setTraining] = useState(false);
 
-  const appendLog = (line) => setLog(l => [...l.slice(-60), line]);
-
   const startTraining = async () => {
-    setTraining(true);
-    setModelStates({
-      logistic_regression: { status: "pending", pct: 0 },
-      random_forest: { status: "pending", pct: 0 },
-      cnn: { status: "pending", pct: 0 },
-    });
     setLog([]);
-    const res = await post("/api/train", {});
-    if (res.error) { appendLog("Error: " + res.error); setTraining(false); return; }
-    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/train/" + res.run_id);
+    setModels({
+      logistic_regression: { status: "pending", progress: 0 },
+      random_forest: { status: "pending", progress: 0 },
+      cnn: { status: "pending", progress: 0 },
+    });
+    const res = await fetch(`${API}/api/train`, { method: "POST" });
+    if (!res.ok) { const e = await res.json(); alert(e.detail || "Could not start training"); return; }
+    const { run_id } = await res.json();
+    setTraining(true);
+
+    const ws = new WebSocket(`${location.origin.replace("http","ws")}/ws/train/${run_id}`);
     ws.onmessage = (evt) => {
       const msg = JSON.parse(evt.data);
-      if (msg.stage === "run_complete") { setTraining(false); onTrained(); return; }
-      const mt = msg.model_type;
-      if (!mt) return;
-      setModelStates(prev => ({
-        ...prev,
-        [mt]: {
-          status: msg.stage === "start" ? "training" : msg.stage === "eval" ? "complete" : msg.stage === "error" ? "failed" : (prev[mt]?.status || "training"),
-          pct: msg.pct !== undefined ? msg.pct : (msg.stage === "eval" ? 100 : prev[mt]?.pct || 0),
-          accuracy: msg.accuracy !== undefined ? msg.accuracy : prev[mt]?.accuracy,
-        }
-      }));
-      if (msg.stage === "progress") appendLog(`[${mt}] ${msg.stage} ${msg.pct}%`);
-      if (msg.stage === "eval") appendLog(`[${mt}] done — accuracy ${(msg.accuracy * 100).toFixed(1)}%`);
-      if (msg.stage === "error") appendLog(`[${mt}] ERROR: ${msg.error}`);
+      if (msg.type === "progress") {
+        setModels(prev => ({
+          ...prev,
+          [msg.model]: { ...prev[msg.model], status: "training", progress: msg.progress ?? prev[msg.model]?.progress, message: msg.message }
+        }));
+        setLog(prev => [...prev.slice(-60), `[${msg.model}] ${msg.message}`]);
+      } else if (msg.type === "model_status") {
+        setModels(prev => ({ ...prev, [msg.model]: { ...prev[msg.model], status: msg.status, accuracy: msg.accuracy, error: msg.error, progress: 1 } }));
+      } else if (msg.type === "run_complete") {
+        setTraining(false);
+        refresh();
+      }
     };
   };
 
   return (
-    <div className="card">
-      <h2>2. Train</h2>
-      <button onClick={startTraining} disabled={!ready || training}>
-        {training ? "Training..." : "Train All Models"}
-      </button>
-      {!ready && <div className="muted" style={{ marginTop: 8 }}>{reasonText}</div>}
-      {Object.keys(modelStates).length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          {Object.entries(modelStates).map(([mt, st]) => (
-            <div className="model-block" key={mt}>
-              <div className="model-title">
-                <span>{MODEL_LABELS[mt]}</span>
-                <StatusPill status={st.status} />
-              </div>
-              <div className="progress-bar"><div style={{ width: (st.pct || 0) + "%" }}></div></div>
-              {st.accuracy !== undefined && <div className="muted">Accuracy: {(st.accuracy * 100).toFixed(1)}%</div>}
+    <div>
+      <div className="card">
+        <div className="row" style={{justifyContent:"space-between", alignItems:"center"}}>
+          <div>
+            <strong>Train all models</strong>
+            <p className="muted" style={{margin:"4px 0 0"}}>Runs Logistic Regression, Random Forest, and CNN together (R2). Progress streams live.</p>
+          </div>
+          <button onClick={startTraining} disabled={training || !status?.ready_to_train}>
+            {training ? "Training…" : "Train"}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid3">
+        {Object.entries(models).map(([mt, m]) => (
+          <div className="model-block" key={mt}>
+            <div className="model-header">
+              <span>{MODEL_LABELS[mt]}</span>
+              <span className={`badge ${m.status}`}>{m.status}</span>
             </div>
-          ))}
-          <div className="log">{log.map((l, i) => <div key={i}>{l}</div>)}</div>
+            <div className="progress-wrap"><div className="progress-bar" style={{width: `${Math.round((m.progress||0)*100)}%`}}/></div>
+            {m.accuracy !== undefined && m.accuracy !== null && <p className="muted">Held-out accuracy: {(m.accuracy*100).toFixed(1)}%</p>}
+            {m.error && <p style={{color:"var(--danger)", fontSize:12}}>Error: {m.error}</p>}
+          </div>
+        ))}
+      </div>
+
+      {log.length > 0 && (
+        <div className="card">
+          <strong style={{fontSize:13}}>Live log</strong>
+          <div style={{maxHeight:160, overflowY:"auto", marginTop:6}}>
+            {log.map((l, i) => <div key={i} className="log-line">{l}</div>)}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function heatColor(value, max) {
-  const t = max > 0 ? value / max : 0;
-  const r = Math.round(30 + t * 100);
-  const g = Math.round(60 + t * 120);
-  const b = Math.round(100 + t * 60);
-  return `rgb(${r},${g},${b})`;
-}
+function RunResults() {
+  const [runs, setRuns] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
 
-function ConfusionMatrix({ labels, matrix }) {
-  const [view, setView] = useState("heatmap");
-  const max = Math.max(1, ...matrix.flat());
+  const load = async () => {
+    const r = await fetch(`${API}/api/runs`).then(r => r.json());
+    setRuns(r.runs);
+    if (r.runs.length) setSelected(prev => prev || r.runs[0].id);
+  };
+  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!selected) return;
+    fetch(`${API}/api/runs/${selected}`).then(r => r.json()).then(setDetail);
+  }, [selected]);
+
   return (
     <div>
-      <div className="tabs">
-        <button className={view === "heatmap" ? "" : "secondary"} onClick={() => setView("heatmap")}>Heatmap</button>
-        <button className={view === "table" ? "" : "secondary"} onClick={() => setView("table")}>Table</button>
+      <div className="card">
+        <div className="row" style={{alignItems:"center"}}>
+          <strong>Run:</strong>
+          <select value={selected||""} onChange={e => setSelected(e.target.value)}
+            style={{background:"var(--panel2)", color:"var(--text)", border:"1px solid var(--border)", borderRadius:8, padding:"6px 10px"}}>
+            {runs.map(r => <option key={r.id} value={r.id}>{r.id} — {new Date(r.started_at*1000).toLocaleString()} ({r.status})</option>)}
+          </select>
+          <button className="secondary" onClick={load}>Refresh</button>
+        </div>
       </div>
-      <table className="cm">
-        <thead><tr><th></th>{labels.map(l => <th key={l}>{l}</th>)}</tr></thead>
-        <tbody>
-          {matrix.map((row, i) => (
-            <tr key={i}>
-              <th>{labels[i]}</th>
-              {row.map((val, j) => (
-                <td key={j} className={view === "heatmap" ? "heatcell" : ""}
-                  style={view === "heatmap" ? { background: heatColor(val, max) } : {}}>
-                  {val}
-                </td>
-              ))}
-            </tr>
+
+      {detail && (
+        <div className="grid3">
+          {detail.models.map(m => (
+            <div className="model-block" key={m.model_type}>
+              <div className="model-header">
+                <span>{MODEL_LABELS[m.model_type]}</span>
+                <span className={`badge ${m.status}`}>{m.status}</span>
+              </div>
+              {m.status === "done" ? (
+                <>
+                  <p>Accuracy: <strong>{(m.accuracy*100).toFixed(1)}%</strong></p>
+                  <ConfusionMatrix cm={m.confusion_matrix} labels={m.labels} />
+                </>
+              ) : (
+                <p className="muted">{m.error || "unavailable"}</p>
+              )}
+            </div>
           ))}
-        </tbody>
-      </table>
-      <div className="muted" style={{ marginTop: 4 }}>Rows = actual class, columns = predicted class.</div>
+        </div>
+      )}
+      {!runs.length && <p className="muted">No training runs yet.</p>}
     </div>
   );
 }
 
-function ResultsPanel({ run }) {
-  if (!run) return null;
+function PredictionResults({ result }) {
+  if (!result) return null;
+  if (result.error) return <p style={{color:"var(--danger)"}}>{result.error}</p>;
   return (
-    <div className="card">
-      <h2>3. Evaluation Results</h2>
-      {Object.entries(run.models).map(([mt, m]) => (
+    <div className="grid3">
+      {Object.entries(result.predictions).map(([mt, p]) => (
         <div className="model-block" key={mt}>
-          <div className="model-title">
+          <div className="model-header">
             <span>{MODEL_LABELS[mt]}</span>
-            <StatusPill status={m.status} />
+            <span className={`badge ${p.status === "ok" ? "done" : "unavailable"}`}>{p.status}</span>
           </div>
-          {m.status === "complete" ? (
-            <React.Fragment>
-              <div className="muted">Accuracy: {(m.accuracy * 100).toFixed(1)}%</div>
-              {m.confusion_matrix && m.labels && <ConfusionMatrix labels={m.labels} matrix={m.confusion_matrix} />}
-            </React.Fragment>
+          {p.status === "ok" ? (
+            <>
+              <div className="top-pred">{p.predicted_class}</div>
+              {Object.entries(p.probabilities).sort((a,b)=>b[1]-a[1]).map(([cls, prob]) => (
+                <div className="prob-row" key={cls}>
+                  <div style={{display:"flex", justifyContent:"space-between"}}><span>{cls}</span><span>{(prob*100).toFixed(1)}%</span></div>
+                  <div className="prob-bar-wrap"><div className="prob-bar" style={{width:`${prob*100}%`}}/></div>
+                </div>
+              ))}
+            </>
           ) : (
-            <div className="muted">{m.status === "failed" ? ("Unavailable — " + (m.error || "training failed")) : "Not yet trained."}</div>
+            <p className="muted">{p.reason || "Model unavailable"}</p>
           )}
         </div>
       ))}
@@ -269,29 +453,27 @@ function ResultsPanel({ run }) {
   );
 }
 
-function PredictPanel({ hasTrainedRun }) {
-  const [preview, setPreview] = useState(null);
-  const [predictions, setPredictions] = useState(null);
-  const [error, setError] = useState(null);
+function PredictPanel() {
   const [mode, setMode] = useState("upload");
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const canvasRef = useRef(null);
 
-  const runPredict = async (blob) => {
-    setError(null);
+  const sendBlob = async (blob) => {
+    setLoading(true);
     const fd = new FormData();
-    fd.append("file", blob, "frame.png");
-    const res = await fetch("/api/predict", { method: "POST", body: fd }).then(r => r.json());
-    if (res.error) { setError(res.error); return; }
-    setPredictions(res.predictions);
+    fd.append("file", blob, "frame.jpg");
+    const res = await fetch(`${API}/api/predict`, { method: "POST", body: fd });
+    const json = await res.json();
+    setResult(json);
+    setLoading(false);
   };
 
-  const onFileChange = (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    setPreview(URL.createObjectURL(f));
-    runPredict(f);
+  const onFile = (file) => {
+    setPreviewUrl(URL.createObjectURL(file));
+    sendBlob(file);
   };
 
   const startWebcam = async () => {
@@ -301,113 +483,87 @@ function PredictPanel({ hasTrainedRun }) {
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (e) {
-      setError("Webcam permission denied or unavailable: " + e.message);
+      alert("Webcam permission denied or unavailable: " + e.message);
     }
   };
 
   const stopWebcam = () => {
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-    setMode("upload");
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
   };
+
+  useEffect(() => () => stopWebcam(), []);
 
   const captureFrame = () => {
-    const video = videoRef.current, canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext("2d").drawImage(video, 0, 0);
-    canvas.toBlob(blob => { setPreview(URL.createObjectURL(blob)); runPredict(blob); }, "image/png");
+    setPreviewUrl(canvas.toDataURL("image/jpeg"));
+    canvas.toBlob(blob => sendBlob(blob), "image/jpeg", 0.92);
   };
 
-  useEffect(() => () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); }, []);
-
   return (
-    <div className="card">
-      <h2>4. Predict</h2>
-      {!hasTrainedRun && <div className="muted">Train models first to enable predictions.</div>}
-      {hasTrainedRun && (
-        <React.Fragment>
-          <div className="row" style={{ marginBottom: 10 }}>
-            <button className={mode === "upload" ? "" : "secondary"} onClick={() => { stopWebcam(); }}>Upload Image</button>
-            <button className={mode === "webcam" ? "" : "secondary"} onClick={startWebcam}>Use Webcam</button>
-          </div>
+    <div>
+      <div className="card">
+        <div className="row">
+          <button className={mode==="upload" ? "" : "secondary"} onClick={() => { setMode("upload"); stopWebcam(); }}>Upload image</button>
+          <button className={mode==="webcam" ? "" : "secondary"} onClick={startWebcam}>Use webcam</button>
+        </div>
+      </div>
+
+      <div className="predict-panel">
+        <div className="predict-input">
           {mode === "upload" && (
-            <div className="file-drop" onClick={() => document.getElementById("predict-file").click()}>
-              Click to choose an image
-              <input id="predict-file" type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={onFileChange} />
-            </div>
+            <>
+              <div className="drop" onClick={() => document.getElementById("predict-file").click()}>Click to choose an image to classify</div>
+              <input id="predict-file" type="file" accept="image/*" style={{display:"none"}}
+                onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
+            </>
           )}
           {mode === "webcam" && (
-            <div>
-              <video ref={videoRef} autoPlay playsInline muted></video>
-              <div className="row" style={{ marginTop: 8 }}>
-                <button onClick={captureFrame}>Capture & Predict</button>
-                <button className="secondary" onClick={stopWebcam}>Stop</button>
+            <>
+              <video ref={videoRef} autoPlay playsInline muted />
+              <div className="row" style={{marginTop:8}}>
+                <button onClick={captureFrame}>Capture &amp; predict</button>
               </div>
-            </div>
+            </>
           )}
-          <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
-          {error && <div className="err">{error}</div>}
-          {preview && <img src={preview} alt="preview" style={{ maxWidth: 200, borderRadius: 8, marginTop: 10 }} />}
-          {predictions && (
-            <div className="predict-grid" style={{ marginTop: 14 }}>
-              {Object.entries(predictions).map(([mt, p]) => (
-                <div className="pred-card" key={mt}>
-                  <div className="pred-label">{MODEL_LABELS[mt]}</div>
-                  {p.available ? (
-                    <React.Fragment>
-                      <div className="pred-value">{p.prediction}</div>
-                      <div className="muted" style={{ marginBottom: 6 }}>{(p.confidence * 100).toFixed(1)}% confidence</div>
-                      {Object.entries(p.probabilities).map(([label, prob]) => (
-                        <div className="prob-row" key={label}><span>{label}</span><span>{(prob * 100).toFixed(1)}%</span></div>
-                      ))}
-                    </React.Fragment>
-                  ) : (
-                    <div className="muted">Unavailable — {p.reason}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </React.Fragment>
-      )}
+          {previewUrl && <img className="preview" src={previewUrl} style={{marginTop:10}} />}
+          {loading && <p className="muted">Predicting…</p>}
+        </div>
+        <div style={{flex:2, minWidth:320}}>
+          <PredictionResults result={result} />
+        </div>
+      </div>
     </div>
   );
 }
 
+const TAB_TITLES = {
+  dashboard: ["Dashboard", "An overview of your dataset and latest training run."],
+  data: ["Classes & Data", "Add classes and upload example images for each."],
+  train: ["Train", "Train Logistic Regression, Random Forest, and CNN together."],
+  results: ["Results", "Review accuracy and confusion matrices from past runs."],
+  predict: ["Predict", "Classify a new image from a file or your webcam."],
+};
+
 function App() {
-  const { get } = useApi();
-  const [classes, setClasses] = useState([]);
-  const [readyInfo, setReadyInfo] = useState({ ready: false, reason: "" });
-  const [minImages] = useState(10);
-  const [latestRun, setLatestRun] = useState(null);
-
-  const refreshClasses = useCallback(async () => {
-    const res = await get("/api/classes");
-    setClasses(res.classes || []);
-    const ready = await get("/api/ready-to-train");
-    setReadyInfo(ready);
-  }, []);
-
-  const refreshLatestRun = useCallback(async () => {
-    const res = await get("/api/runs/latest");
-    if (!res.error) setLatestRun(res);
-  }, []);
-
-  useEffect(() => { refreshClasses(); refreshLatestRun(); }, []);
+  const [tab, setTab] = useState("dashboard");
+  const { classes, status, refresh } = useClasses();
+  const [title, subtitle] = TAB_TITLES[tab];
 
   return (
-    <div className="app">
-      <h1>Teachable Machine — Multi-Class Image Classifier</h1>
-      <div className="sub">Create classes, upload or capture images, train Logistic Regression / Random Forest / CNN together, and compare predictions live.</div>
-      <div className="grid">
-        <div>
-          <ClassManager classes={classes} refresh={refreshClasses} minImages={minImages} />
-          <TrainPanel ready={readyInfo.ready} reasonText={readyInfo.reason} onTrained={() => { refreshLatestRun(); }} />
-        </div>
-        <div>
-          <ResultsPanel run={latestRun} />
-          <PredictPanel hasTrainedRun={!!latestRun} />
-        </div>
+    <div className="shell">
+      <Sidebar tab={tab} setTab={setTab} />
+      <div className="main">
+        <h1>{title}</h1>
+        <div className="subtitle">{subtitle}</div>
+        {tab === "dashboard" && <Dashboard setTab={setTab} />}
+        {tab === "data" && <ClassManager classes={classes} status={status} refresh={refresh} />}
+        {tab === "train" && <TrainPanel status={status} refresh={refresh} />}
+        {tab === "results" && <RunResults />}
+        {tab === "predict" && <PredictPanel />}
       </div>
     </div>
   );

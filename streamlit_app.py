@@ -1,5 +1,5 @@
 """
-Streamlit frontend — an alternative UI to ui/index.html, talking to the same
+Streamlit frontend -- an alternative UI to ui/index.html, talking to the same
 FastAPI backend over REST (no ML logic here, per R1: this is UI only).
 
 Run standalone (with the API already running separately):
@@ -11,15 +11,16 @@ import os
 import time
 import requests
 import streamlit as st
+import pandas as pd
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 
-st.set_page_config(page_title="Teachable Machine Classifier", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Teachable Machine Classifier", page_icon="\U0001F9E0", layout="wide")
 
 MODEL_LABELS = {
     "logistic_regression": "Logistic Regression",
     "random_forest": "Random Forest",
-    "cnn": "CNN (Keras)",
+    "cnn": "CNN (trained from scratch)",
 }
 
 
@@ -50,6 +51,13 @@ def get_dataset_status():
     return r.json()
 
 
+@st.cache_data(ttl=2)
+def get_dashboard():
+    r = api_get("/api/dashboard")
+    r.raise_for_status()
+    return r.json()
+
+
 def get_run(run_id):
     r = api_get(f"/api/runs/{run_id}")
     r.raise_for_status()
@@ -63,13 +71,6 @@ def get_runs():
 
 
 # ------------------------------------------------------------------ Sidebar --
-st.title("🧠 Teachable Machine — Multi-Class Image Classifier")
-st.caption(
-    "Streamlit UI for the same backend as the React app. "
-    "Upload images → train Logistic Regression / Random Forest / CNN → predict "
-    "from a file or your webcam."
-)
-
 try:
     api_get("/api/classes")
 except requests.exceptions.ConnectionError:
@@ -80,12 +81,71 @@ except requests.exceptions.ConnectionError:
     )
     st.stop()
 
-tab_data, tab_train, tab_results, tab_predict = st.tabs(
-    ["1. Classes & Data", "2. Train", "3. Results", "4. Predict"]
-)
+with st.sidebar:
+    st.markdown("### \U0001F9E0 Teachable Machine")
+    st.caption("Multi-Class Image Classifier")
+    # Bug fix: the "Go train a model" button on the Dashboard used to set
+    # st.session_state["_nav_hint"] and rerun, but nothing ever read that
+    # key -- the radio below always fell back to its default ("Dashboard"),
+    # so the button silently did nothing. Giving the radio an explicit
+    # `key` and having the button set that same session_state key directly
+    # (before the widget is created) makes the navigation actually work.
+    page = st.radio(
+        "Navigate",
+        ["Dashboard", "Classes & Data", "Train", "Results", "Predict"],
+        label_visibility="collapsed",
+        key="_nav_radio",
+    )
+    st.divider()
+    quick_status = get_dataset_status()
+    if quick_status["ready_to_train"]:
+        st.success("Dataset ready to train")
+    else:
+        st.warning("Dataset not ready")
+    st.caption(f"API: {API_BASE_URL}")
 
-# ------------------------------------------------------------ 1. Data tab --
-with tab_data:
+st.title(page)
+
+# ------------------------------------------------------------- Dashboard --
+if page == "Dashboard":
+    st.caption("An overview of your dataset and latest training run.")
+    dash = get_dashboard()
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Classes", dash["total_classes"])
+    c2.metric("Images uploaded", dash["total_images"])
+    c3.metric("Training runs", dash["total_runs"])
+    c4.metric("Completed runs", dash["completed_runs"])
+
+    st.subheader("Images per class")
+    if dash["class_counts"]:
+        df = pd.DataFrame(
+            {"class": list(dash["class_counts"].keys()), "images": list(dash["class_counts"].values())}
+        ).set_index("class")
+        st.bar_chart(df)
+    else:
+        st.caption("No classes yet.")
+
+    st.subheader("Latest training run")
+    if not dash["latest_run"]:
+        st.caption("No completed runs yet.")
+        if st.button("Go train a model"):
+            st.session_state["_nav_radio"] = "Train"
+            st.rerun()
+    else:
+        acc_rows = {
+            MODEL_LABELS[m["model_type"]]: (m["accuracy"] or 0) * 100
+            for m in dash["latest_run"]["models"] if m["status"] == "done"
+        }
+        if acc_rows:
+            df = pd.DataFrame({"model": list(acc_rows.keys()), "accuracy %": list(acc_rows.values())}).set_index("model")
+            st.bar_chart(df)
+        for m in dash["latest_run"]["models"]:
+            if m["status"] != "done":
+                st.caption(f"{MODEL_LABELS[m['model_type']]}: {m['status']}")
+
+# ------------------------------------------------------------ Classes & Data --
+elif page == "Classes & Data":
     status = get_dataset_status()
     if status["ready_to_train"]:
         total = sum(status["class_counts"].values())
@@ -139,8 +199,8 @@ with tab_data:
                         st.cache_data.clear()
                         st.rerun()
 
-# ----------------------------------------------------------- 2. Train tab --
-with tab_train:
+# ----------------------------------------------------------------- Train --
+elif page == "Train":
     status = get_dataset_status()
     st.write("Runs Logistic Regression, Random Forest, and CNN together (R2). Progress updates live.")
     disabled = not status["ready_to_train"]
@@ -158,45 +218,46 @@ with tab_train:
 
     run_id = st.session_state.get("training_run_id")
     if run_id and st.session_state.get("training_active"):
-        placeholder = st.empty()
-        log_placeholder = st.empty()
-        log_lines = []
-        # Streamlit has no native WebSocket client, so we poll the REST
-        # endpoint on an interval — the same run-state the WebSocket in
-        # ui/index.html streams live, just pulled instead of pushed (R5 is
-        # still satisfied: every trainer emits stage/progress events, this
-        # UI just reads the latest persisted state each tick).
-        while True:
-            run = get_run(run_id)
-            with placeholder.container():
-                cols = st.columns(3)
-                all_done = True
-                for i, m in enumerate(run["models"]):
-                    with cols[i]:
-                        label = MODEL_LABELS[m["model_type"]]
-                        badge = {"pending": "⏳", "training": "🔄", "done": "✅", "failed": "❌"}[m["status"]]
-                        st.markdown(f"**{label}** {badge} `{m['status']}`")
-                        if m["status"] not in ("done", "failed"):
-                            all_done = False
-                        if m["status"] == "done":
-                            st.progress(1.0)
-                            st.caption(f"Held-out accuracy: {m['accuracy']*100:.1f}%")
-                        elif m["status"] == "training":
-                            st.progress(0.5)
-                        elif m["status"] == "failed":
-                            st.progress(0.0)
-                            st.caption(f"Error: {m['error']}")
-                        else:
-                            st.progress(0.0)
-            if all_done:
-                st.session_state["training_active"] = False
-                st.cache_data.clear()
-                st.success("Training complete.")
-                break
-            time.sleep(2)
+        # Bug fix: this used to be `while True: ...; time.sleep(2)` inside
+        # a single script execution. In Streamlit that blocks the entire
+        # session for the whole loop's duration -- no other widget on any
+        # page (sidebar nav included) can respond until the loop finally
+        # breaks, because Streamlit only processes one script run at a
+        # time per session. Doing exactly one status check per run and
+        # ending with an explicit st.rerun() is the standard non-blocking
+        # polling pattern: each rerun is its own fresh, short script
+        # execution, so the app stays responsive between ticks.
+        run = get_run(run_id)
+        cols = st.columns(3)
+        all_done = True
+        for i, m in enumerate(run["models"]):
+            with cols[i]:
+                label = MODEL_LABELS[m["model_type"]]
+                badge = {"pending": "⏳", "training": "🔄", "done": "✅", "failed": "❌"}[m["status"]]
+                st.markdown(f"**{label}** {badge} `{m['status']}`")
+                if m["status"] not in ("done", "failed"):
+                    all_done = False
+                if m["status"] == "done":
+                    st.progress(1.0)
+                    st.caption(f"Held-out accuracy: {m['accuracy']*100:.1f}%")
+                elif m["status"] == "training":
+                    st.progress(0.5)
+                elif m["status"] == "failed":
+                    st.progress(0.0)
+                    st.caption(f"Error: {m['error']}")
+                else:
+                    st.progress(0.0)
 
-# ---------------------------------------------------------- 3. Results tab --
-with tab_results:
+        if all_done:
+            st.session_state["training_active"] = False
+            st.cache_data.clear()
+            st.success("Training complete.")
+        else:
+            time.sleep(2)
+            st.rerun()
+
+# --------------------------------------------------------------- Results --
+elif page == "Results":
     runs = get_runs()
     if not runs:
         st.info("No training runs yet.")
@@ -215,14 +276,13 @@ with tab_results:
                         st.metric("Accuracy", f"{m['accuracy']*100:.1f}%")
                         labels = m["labels"]
                         cm = m["confusion_matrix"]
-                        import pandas as pd
                         df = pd.DataFrame(cm, index=labels, columns=labels)
                         st.dataframe(df.style.background_gradient(cmap="Greens", axis=None))
                     else:
                         st.caption(m.get("error") or "unavailable")
 
-# ---------------------------------------------------------- 4. Predict tab --
-with tab_predict:
+# -------------------------------------------------------------- Predict --
+elif page == "Predict":
     mode = st.radio("Image source", ["Upload", "Webcam"], horizontal=True)
 
     image_bytes = None

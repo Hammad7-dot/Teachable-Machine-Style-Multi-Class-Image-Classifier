@@ -32,6 +32,7 @@ TRAINER_CLASSES = {
 }
 
 _ws_clients = {}
+_run_event_log = {}  # run_id -> list of already-broadcast events, replayed to late-joining clients
 _main_loop = None
 
 
@@ -40,6 +41,39 @@ def get_classes():
     counts = db.class_counts()
     names = db.list_classes()
     return {"classes": [{"name": n, "image_count": counts.get(n, 0)} for n in names]}
+
+
+@app.get("/api/dashboard")
+def dashboard():
+    """Aggregate summary for the Dashboard view in both frontends: dataset
+    size, run history, and the latest completed run's per-model accuracy --
+    one call instead of each UI re-deriving this from /api/classes,
+    /api/dataset/status, and /api/runs separately."""
+    counts = db.class_counts_full()
+    names = db.list_classes()
+    runs = db.list_runs()
+    latest = db.latest_done_run()
+
+    latest_summary = None
+    if latest:
+        full = db.get_run(latest["id"])
+        models = []
+        for m in full["models"]:
+            models.append({
+                "model_type": m["model_type"],
+                "status": m["status"],
+                "accuracy": m["accuracy"],
+            })
+        latest_summary = {"run_id": full["id"], "started_at": full["started_at"], "models": models}
+
+    return {
+        "total_classes": len(names),
+        "total_images": sum(counts.values()),
+        "class_counts": counts,
+        "total_runs": len(runs),
+        "completed_runs": len([r for r in runs if r["status"] == "done"]),
+        "latest_run": latest_summary,
+    }
 
 
 @app.post("/api/classes")
@@ -77,7 +111,7 @@ async def upload_images(name: str, files: List[UploadFile] = File(...)):
 
 @app.get("/api/dataset/status")
 def dataset_status():
-    counts = db.class_counts()
+    counts = db.class_counts_full()
     ready, reason = True, None
     try:
         validate_dataset_ready(counts)
@@ -129,6 +163,15 @@ def _run_training(run_id: str):
 
 
 def _broadcast(run_id, message):
+    # Persist every event so a client that connects after training has
+    # already started (a real race: POST /api/train kicks off the
+    # background thread immediately, and the UI only opens its WebSocket
+    # after that response comes back -- any events fired in that gap were
+    # previously dropped silently) can be caught up on connect.
+    log = _run_event_log.setdefault(run_id, [])
+    log.append(message)
+    del log[:-500]  # bound memory: keep only the most recent 500 events/run
+
     clients = _ws_clients.get(run_id, [])
     if not clients or _main_loop is None:
         return
@@ -144,7 +187,7 @@ def _broadcast(run_id, message):
 
 @app.post("/api/train")
 def start_training():
-    counts = db.class_counts()
+    counts = db.class_counts_full()
     try:
         validate_dataset_ready(counts)
     except ValidationError as e:
@@ -153,6 +196,7 @@ def start_training():
     run_id = uuid.uuid4().hex[:12]
     db.create_run(run_id, sorted(db.list_classes()))
     _ws_clients[run_id] = []
+    _run_event_log[run_id] = []
 
     t = threading.Thread(target=_run_training, args=(run_id,), daemon=True)
     t.start()
@@ -183,6 +227,17 @@ async def ws_train(websocket: WebSocket, run_id: str):
     global _main_loop
     _main_loop = asyncio.get_event_loop()
     await websocket.accept()
+
+    # Catch this client up on any events broadcast before it connected
+    # (see _broadcast) -- fixes the race where fast-finishing early stages
+    # (e.g. Logistic Regression) could complete before the frontend's
+    # WebSocket connection was established.
+    for event in _run_event_log.get(run_id, []):
+        try:
+            await websocket.send_json(event)
+        except Exception:
+            pass
+
     _ws_clients.setdefault(run_id, []).append(websocket)
     try:
         while True:

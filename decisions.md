@@ -125,6 +125,52 @@ Format: **Decision → Rationale → Alternatives considered → Status**
   a `keras.applications.MobileNetV2(weights="imagenet", include_top=False)`
   base is a localized change.
 
+## D15. Added /api/dashboard aggregate endpoint, and sidebar+dashboard navigation in both UIs
+- **Rationale:** Both frontends needed an overview landing page (dataset
+  size, run history, latest run's per-model accuracy) rather than requiring
+  users to piece that together from the Classes/Train/Results tabs
+  individually. Rather than have each frontend call three separate
+  endpoints (`/api/classes`, `/api/dataset/status`, `/api/runs`) and derive
+  the summary client-side, added one backend endpoint
+  (`GET /api/dashboard`) that computes it once, keeping the "no ML/business
+  logic in the UI" rule (R1) intact for the aggregation logic too.
+- **Alternatives considered:** Derive the dashboard purely client-side from
+  existing endpoints — rejected as needlessly duplicating aggregation logic
+  in two UIs (React and Streamlit) instead of once in the backend.
+- **Status:** Accepted. Both `ui/index.html` (sidebar nav, replacing the old
+  top-tab layout) and `streamlit_app.py` (native `st.sidebar`) consume this
+  endpoint for their Dashboard page.
+
+## D16. Bug fixes found during review
+- **WebSocket progress race condition:** `POST /api/train` started the
+  background training thread immediately, but the frontend only opened its
+  WebSocket connection after that response returned. Any progress events
+  fired in that gap (commonly the fast-finishing Logistic Regression
+  model's `start`/`fit`/`done` events) were silently dropped, since
+  `_broadcast` only sent to already-connected clients. Fixed by buffering
+  every broadcast event per run (capped at the most recent 500) in
+  `main.py` and replaying that buffer to a client immediately after it
+  connects. Verified with a WebSocket client that deliberately connects
+  1.5s after training starts — it now receives all 3 models' `start`
+  events instead of only later ones.
+- **Streamlit Train page blocked the whole app:** the polling loop was a
+  `while True: ...; time.sleep(2)` inside a single script execution. In
+  Streamlit that blocks the entire session — no other widget on any page,
+  including the sidebar nav, can respond until the loop exits, since
+  Streamlit processes one script run at a time per session. Rewritten to
+  do exactly one status check per script run, ending with an explicit
+  `st.rerun()` — the standard non-blocking Streamlit polling pattern, since
+  each rerun is its own short, fresh execution rather than one long-lived
+  blocked one.
+- **Streamlit "Go train a model" button was a no-op:** it set
+  `st.session_state["_nav_hint"]` and called `st.rerun()`, but the sidebar
+  radio never read that key, so clicking it silently did nothing. Fixed by
+  giving the radio an explicit `key="_nav_radio"` and having the button set
+  that same session-state key directly before rerunning, since Streamlit
+  widgets with a `key` are driven entirely by that session-state entry
+  after their first render.
+- **Status:** All three fixed and verified in `main.py`/`streamlit_app.py`.
+
 ---
 
 ### Change log
@@ -132,3 +178,4 @@ Format: **Decision → Rationale → Alternatives considered → Status**
 |------|----------|--------|
 | — | — | Initial version drafted from Level 3 spec. |
 | Build | D13, D14 | Logged network-access deviations discovered during implementation (no access to pretrained-weight hosts). |
+| Build | D15, D16 | Added dashboard endpoint + sidebar/dashboard UI in both frontends; fixed WebSocket race condition and two Streamlit navigation/blocking bugs. |

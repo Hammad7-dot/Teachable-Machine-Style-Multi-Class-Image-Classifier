@@ -28,6 +28,12 @@ def _init_db():
 def get_conn():
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
+    # WAL mode: the training background thread writes to run_models
+    # frequently while the API thread concurrently reads run status --
+    # WAL lets readers and the writer proceed without blocking each other,
+    # avoiding "database is locked" errors under load (default journal
+    # mode serializes all access).
+    conn.execute("PRAGMA journal_mode=WAL")
     try:
         yield conn
         conn.commit()
@@ -61,8 +67,23 @@ def list_images(class_name=None):
         return [dict(r) for r in rows]
 
 def class_counts():
+    """Only classes that have >=1 image (GROUP BY drops zero-image classes)."""
     with get_conn() as conn:
         rows = conn.execute("SELECT class_name, COUNT(*) as n FROM images GROUP BY class_name").fetchall()
+        return {r["class_name"]: r["n"] for r in rows}
+
+def class_counts_full():
+    """All classes, including ones with zero images (n=0). Bug fix: the
+    images-table-only GROUP BY in class_counts() made a freshly-created,
+    still-empty class invisible to validate_dataset_ready() -- it was
+    silently dropped instead of correctly blocking training with a
+    '0/10 images' message. Training-readiness checks should use this."""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT c.name as class_name, COUNT(i.id) as n
+            FROM classes c LEFT JOIN images i ON i.class_name = c.name
+            GROUP BY c.name
+        """).fetchall()
         return {r["class_name"]: r["n"] for r in rows}
 
 def create_run(run_id, class_names):
